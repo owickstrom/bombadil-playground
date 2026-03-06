@@ -10,6 +10,8 @@ Read it.
 
 ## Guidelines
 
+* Interview the user in order to come up with properties; go back and forth,
+  ask clarifying questions, refine the properties.
 * Many properties that people will want are invariants (e.g. `always(() =>
   condition)`).
 * In some cases, you need to do guarantee properties, like using nested `next`
@@ -23,10 +25,18 @@ Read it.
       anything that imports NodeJS packages.
     - Properties (formulas) can only depend on cells (state extractor values)
       and what they close over. No DOM access.
-* Interview the user in order to come up with properties; go back and forth,
-  ask clarifying questions, refine the properties.
+* Follow the naming style of the existing spec, but otherwise default to using
+  full clear names in significance-order, i.e. `nItemsNow` should be
+  `itemsNowCount`.
+* Always validate your changes through type checking.
 
 ## Commands
+
+To verify that your changes are correct, run:
+
+```
+nix --extra-experimental-features 'nix-command flakes' develop --command tsc --noEmit
+```
 
 To run tests, generally use this form of command:
 
