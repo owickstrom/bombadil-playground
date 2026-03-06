@@ -1,4 +1,4 @@
-import { always, extract, now, next } from "@antithesishq/bombadil";
+import { always, extract, now, next, actions } from "@antithesishq/bombadil";
 
 export * from "@antithesishq/bombadil/defaults";
 
@@ -6,16 +6,16 @@ export * from "@antithesishq/bombadil/defaults";
 // Helpers
 // -------------------------------------------------
 
-function normalize_text(value: string | null | undefined): string | null {
+function normalizeText(value: string | null | undefined): string | null {
   if (value == null) return null;
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
 }
 
-function is_visible(el: Element | null): boolean {
+function isVisible(el: Element | null): boolean {
   if (!el) return false;
-  const html_el = el as HTMLElement;
-  const style = html_el.ownerDocument.defaultView?.getComputedStyle(html_el);
+  const htmlEl = el as HTMLElement;
+  const style = htmlEl.ownerDocument.defaultView?.getComputedStyle(htmlEl);
   if (!style) return true;
   return (
     style.display !== "none" &&
@@ -24,7 +24,7 @@ function is_visible(el: Element | null): boolean {
   );
 }
 
-function parse_int_safe(text: string | null): number | null {
+function parseIntSafe(text: string | null): number | null {
   if (text == null) return null;
   const trimmed = text.trim();
   if (trimmed === "") return null;
@@ -32,7 +32,7 @@ function parse_int_safe(text: string | null): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-function arrays_equal(a: unknown[] | null, b: unknown[] | null): boolean {
+function arraysEqual(a: unknown[] | null, b: unknown[] | null): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
@@ -42,53 +42,64 @@ function arrays_equal(a: unknown[] | null, b: unknown[] | null): boolean {
   return true;
 }
 
+function getCenterPoint(el: Element): { x: number; y: number } | null {
+  const rect = el.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  }
+  return null;
+}
+
 // -------------------------------------------------
 // Extractors (elements)
 // -------------------------------------------------
 
-const selected_filter = extract((state) => {
+const selectedFilter = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .filters a.selected",
   ) as HTMLElement | null;
-  if (!el || !is_visible(el)) return null;
-  return normalize_text(el.textContent);
+  if (!el || !isVisible(el)) return null;
+  return normalizeText(el.textContent);
 });
 
-type Todo_item = {
+type TodoItem = {
   index: number;
   text: string;
   checked: boolean;
-  is_editing: boolean;
+  isEditing: boolean;
 };
 
 const items = extract((state) => {
-  const li_nodes = Array.from(
+  const liNodes = Array.from(
     state.document.querySelectorAll(".todo-list li"),
   ) as HTMLElement[];
 
-  const result: Todo_item[] = [];
+  const result: TodoItem[] = [];
 
-  li_nodes.forEach((li, index) => {
+  liNodes.forEach((li, index) => {
     const style = state.window.getComputedStyle(li);
-    const item_visible = style.display !== "none";
+    const itemVisible = style.display !== "none";
 
-    const is_editing = li.classList.contains("editing");
+    const isEditing = li.classList.contains("editing");
 
     const label = li.querySelector("label") as HTMLElement | null;
-    const label_visible = !!(label && is_visible(label));
-    const text = normalize_text(label?.textContent) ?? "";
+    const labelVisible = !!(label && isVisible(label));
+    const text = normalizeText(label?.textContent) ?? "";
 
     const cb = li.querySelector(
       "input[type=checkbox]",
     ) as HTMLInputElement | null;
     const checked = !!cb?.checked;
 
-    if (item_visible && (label_visible || is_editing)) {
+    if (itemVisible && (labelVisible || isEditing)) {
       result.push({
         index,
         text,
         checked,
-        is_editing,
+        isEditing,
       });
     }
   });
@@ -96,13 +107,13 @@ const items = extract((state) => {
   return result;
 });
 
-const edit_input = extract((state) => {
+const editInput = extract((state) => {
   const edit = state.document.querySelector(".todo-list li .edit") as
     | HTMLInputElement
     | HTMLTextAreaElement
     | null;
 
-  if (!edit || !is_visible(edit)) return null;
+  if (!edit || !isVisible(edit)) return null;
 
   const active = state.document.activeElement === edit;
   const text = (edit as HTMLInputElement).value ?? edit.textContent ?? "";
@@ -113,97 +124,97 @@ const edit_input = extract((state) => {
   };
 });
 
-const last_item_text = extract(() => {
-  const current_items = items.current;
-  if (!current_items.length) return null;
-  return current_items[current_items.length - 1]?.text ?? null;
+const lastItemText = extract(() => {
+  const currentItems = items.current;
+  if (!currentItems.length) return null;
+  return currentItems[currentItems.length - 1]?.text ?? null;
 });
 
-const num_items = extract(() => {
+const itemsCount = extract(() => {
   return items.current.length;
 });
 
-const num_unchecked = extract(() => {
+const itemsUncheckedCount = extract(() => {
   return items.current.filter((i) => !i.checked).length;
 });
 
-const num_checked = extract(() => {
+const itemsCheckedCount = extract(() => {
   return items.current.filter((i) => i.checked).length;
 });
 
-const items_in_edit_mode = extract(() => {
-  return items.current.filter((i) => i.is_editing);
+const itemsInEditMode = extract(() => {
+  return items.current.filter((i) => i.isEditing);
 });
 
-const item_in_edit_mode = extract(() => {
-  return items_in_edit_mode.current[0] ?? null;
+const itemInEditMode = extract(() => {
+  return itemsInEditMode.current[0] ?? null;
 });
 
-const num_in_edit_mode = extract(() => {
-  return items_in_edit_mode.current.length;
+const itemsInEditModeCount = extract(() => {
+  return itemsInEditMode.current.length;
 });
 
-const is_in_edit_mode = extract(() => {
-  return num_in_edit_mode.current >= 1 && edit_input.current != null;
+const isInEditMode = extract(() => {
+  return itemsInEditModeCount.current >= 1 && editInput.current != null;
 });
 
-const new_todo_input = extract((state) => {
+const newTodoInput = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .new-todo",
   ) as HTMLInputElement | null;
   if (!el) return null;
 
-  const pending_text = el.value ?? "";
+  const pendingText = el.value ?? "";
   const active = state.document.activeElement === el;
 
   return {
-    pending_text,
+    pendingText,
     active,
   };
 });
 
-const todo_count = extract((state) => {
+const todoCount = extract((state) => {
   const strong = state.document.querySelector(
     ".todoapp .todo-count strong",
   ) as HTMLElement | null;
-  if (!strong || !is_visible(strong)) return null;
+  if (!strong || !isVisible(strong)) return null;
 
-  const text = normalize_text(strong.textContent);
+  const text = normalizeText(strong.textContent);
   if (!text) return null;
 
   const first = text.split(/\s+/)[0] ?? null;
-  return parse_int_safe(first);
+  return parseIntSafe(first);
 });
 
-const items_left = extract((state) => {
+const itemsLeft = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .todo-count",
   ) as HTMLElement | null;
-  if (!el || !is_visible(el)) return null;
-  const text = normalize_text(el.innerText);
+  if (!el || !isVisible(el)) return null;
+  const text = normalizeText(el.innerText);
   return text;
 });
 
-const available_filters = extract((state) => {
+const availableFilters = extract((state) => {
   const nodes = Array.from(
     state.document.querySelectorAll(".todoapp .filters a"),
   ) as HTMLElement[];
 
   return nodes
-    .filter(is_visible)
-    .map((el) => normalize_text(el.textContent))
+    .filter(isVisible)
+    .map((el) => normalizeText(el.textContent))
     .filter((x): x is string => x !== null);
 });
 
-const toggle_all_label = extract((state) => {
+const toggleAllLabel = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp label[for=toggle-all]",
   ) as HTMLElement | null;
-  if (!el || !is_visible(el)) return null;
+  if (!el || !isVisible(el)) return null;
   return el.textContent ?? "";
 });
 
-const toggle_all_checked = extract((state) => {
+const toggleAllChecked = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp #toggle-all",
   ) as HTMLInputElement | null;
@@ -211,19 +222,116 @@ const toggle_all_checked = extract((state) => {
   return !!el.checked;
 });
 
-// A rough “initial” approximation; used only in comments/intuition.
+// A rough "initial" approximation; used only in comments/intuition.
 const initial = extract(() => {
-  const sel = selected_filter.current;
-  const n_items_now = num_items.current;
-  const input = new_todo_input.current;
+  const sel = selectedFilter.current;
+  const itemsNowCount = itemsCount.current;
+  const input = newTodoInput.current;
 
   return (
     sel === null &&
-    n_items_now === 0 &&
+    itemsNowCount === 0 &&
     input != null &&
-    input.pending_text === "" &&
+    input.pendingText === "" &&
     input.active === true
   );
+});
+
+// -------------------------------------------------
+// Extractors for action generators
+// -------------------------------------------------
+
+type ClickTarget = {
+  name: string;
+  content?: string;
+  point: { x: number; y: number };
+};
+
+const unselectedFilterLinks = extract((state) => {
+  const links = Array.from(
+    state.document.querySelectorAll(".todoapp .filters a:not(.selected)")
+  ) as HTMLElement[];
+
+  return links
+    .filter(isVisible)
+    .map(el => {
+      const point = getCenterPoint(el);
+      if (!point) return null;
+      return {
+        name: "filter-link",
+        content: normalizeText(el.textContent) ?? undefined,
+        point,
+      };
+    })
+    .filter((x): x is ClickTarget => x !== null);
+});
+
+const selectedFilterLink = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp .filters a.selected"
+  ) as HTMLElement | null;
+  if (!el || !isVisible(el)) return null;
+
+  const point = getCenterPoint(el);
+  if (!point) return null;
+
+  return {
+    name: "selected-filter",
+    content: normalizeText(el.textContent) ?? undefined,
+    point,
+  };
+});
+
+const toggleAllLabelTarget = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp label[for=toggle-all]"
+  ) as HTMLElement | null;
+  if (!el || !isVisible(el)) return null;
+
+  const point = getCenterPoint(el);
+  if (!point) return null;
+
+  return {
+    name: "toggle-all",
+    point,
+  };
+});
+
+const todoLabels = extract((state) => {
+  const labelEls = Array.from(
+    state.document.querySelectorAll(".todo-list li label")
+  ) as HTMLElement[];
+
+  return labelEls
+    .filter(isVisible)
+    .map(el => {
+      const point = getCenterPoint(el);
+      if (!point) return null;
+      return {
+        name: "todo-label",
+        content: normalizeText(el.textContent) ?? undefined,
+        point,
+      };
+    })
+    .filter((x): x is ClickTarget => x !== null);
+});
+
+const deleteButtons = extract((state) => {
+  const buttons = Array.from(
+    state.document.querySelectorAll(".todoapp .destroy")
+  ) as HTMLElement[];
+
+  return buttons
+    .filter(isVisible)
+    .map(el => {
+      const point = getCenterPoint(el);
+      if (!point) return null;
+      return {
+        name: "delete-button",
+        point,
+      };
+    })
+    .filter((x): x is ClickTarget => x !== null);
 });
 
 // -------------------------------------------------
@@ -232,31 +340,31 @@ const initial = extract(() => {
 
 // 1. Filters should eventually be All/Active/Completed once rendered.
 //    While the JS hasn’t finished rendering (no filters yet), we’re lenient.
-export const has_filters_now = always(() => {
-  const n_items_now = num_items.current;
-  const filters = available_filters.current;
+export const filtersExist = always(() => {
+  const itemsNowCount = itemsCount.current;
+  const filters = availableFilters.current;
 
   if (filters.length === 0) {
     // Bootstrap / pre-render: allow missing filters.
     return true;
   }
 
-  if (n_items_now === 0) {
+  if (itemsNowCount === 0) {
     return true;
   }
 
   const expected = ["All", "Active", "Completed"];
-  return arrays_equal(filters, expected);
+  return arraysEqual(filters, expected);
 });
 
 // 2. Toggle-all label exists whenever a filter is selected and not in edit mode.
 //    Again, we’re lenient if filters themselves aren’t rendered yet.
-export const has_toggle_all_now = always(() => {
-  const in_edit = is_in_edit_mode.current;
-  const filter = selected_filter.current;
-  const filters = available_filters.current;
+export const toggleAllExists = always(() => {
+  const inEdit = isInEditMode.current;
+  const filter = selectedFilter.current;
+  const filters = availableFilters.current;
 
-  if (in_edit) return true;
+  if (inEdit) return true;
   if (filter == null) return true;
 
   if (filters.length === 0) {
@@ -264,29 +372,29 @@ export const has_toggle_all_now = always(() => {
     return true;
   }
 
-  return toggle_all_label.current != null;
+  return toggleAllLabel.current != null;
 });
 
 // 3. Filter/count relationships (All/Active/Completed).
-export const correct_filters_now = always(() => {
-  const filter = selected_filter.current;
-  const n_items_now = num_items.current;
-  const n_unchecked_now = num_unchecked.current;
-  const count = todo_count.current;
+export const filtersCorrect = always(() => {
+  const filter = selectedFilter.current;
+  const itemsNowCount = itemsCount.current;
+  const uncheckedNowCount = itemsUncheckedCount.current;
+  const count = todoCount.current;
 
   if (filter == null) {
     // No filter selected => no items (matches Quickstrom spec).
-    return n_items_now === 0;
+    return itemsNowCount === 0;
   }
 
   if (filter === "All") {
     if (count == null) return true; // allow pre-render
-    return count === n_unchecked_now && count <= n_items_now;
+    return count === uncheckedNowCount && count <= itemsNowCount;
   }
 
   if (filter === "Active") {
     if (count == null) return true; // allow pre-render
-    return n_items_now === count;
+    return itemsNowCount === count;
   }
 
   if (filter === "Completed") {
@@ -299,15 +407,15 @@ export const correct_filters_now = always(() => {
 });
 
 // 4. If we’re in edit mode, there must be at least one item.
-export const edit_mode_has_items_now = always(() => {
-  if (!is_in_edit_mode.current) return true;
-  return num_items.current > 0;
+export const editModeHasItems = always(() => {
+  if (!isInEditMode.current) return true;
+  return itemsCount.current > 0;
 });
 
 // 5. Pluralization of the “items left” label.
-export const items_left_pluralized_now = always(() => {
-  const count = todo_count.current;
-  const text = items_left.current;
+export const itemsLeftPluralized = always(() => {
+  const count = todoCount.current;
+  const text = itemsLeft.current;
 
   if (count == null) {
     // If we don’t have a numeric count yet, allow missing label.
@@ -317,12 +425,12 @@ export const items_left_pluralized_now = always(() => {
   if (text == null) return false;
 
   const parts = text.trim().split(/\s+/);
-  const has_word = (w: string) => parts.includes(w);
+  const hasWord = (w: string) => parts.includes(w);
 
   if (count === 1) {
-    return has_word("item");
+    return hasWord("item");
   } else {
-    return has_word("items");
+    return hasWord("items");
   }
 });
 
@@ -332,160 +440,160 @@ export const items_left_pluralized_now = always(() => {
 // -------------------------------------------------
 
 // focusNewTodo: input not active → next step it becomes active.
-const focus_new_todo_transition = now(() => {
-  const input = new_todo_input.current;
+const focusNewTodoTransition = now(() => {
+  const input = newTodoInput.current;
   return !!input && !input.active;
 }).implies(
   next(() => {
-    const input = new_todo_input.current;
+    const input = newTodoInput.current;
     return !!input && input.active;
   }),
 );
 
 // enterNewTodoText: we can change pending text without changing structure.
-const enter_new_todo_text_transition = now(() => {
-  const input = new_todo_input.current;
+const enterNewTodoTextTransition = now(() => {
+  const input = newTodoInput.current;
   return !!input;
 }).implies(
   next(() => {
-    const input = new_todo_input.current;
+    const input = newTodoInput.current;
     return !!input;
   }),
 );
 
 // changeFilter: selected filter stays within the available filters.
-const change_filter_transition = now(() => {
-  const filters = available_filters.current;
-  const sel = selected_filter.current;
+const changeFilterTransition = now(() => {
+  const filters = availableFilters.current;
+  const sel = selectedFilter.current;
   return filters.length > 0 && sel !== null;
 }).implies(
   next(() => {
-    const sel = selected_filter.current;
-    const filters = available_filters.current;
+    const sel = selectedFilter.current;
+    const filters = availableFilters.current;
     return sel === null || filters.includes(sel);
   }),
 );
 
 // setSameFilter: re-selecting the same filter keeps *some* filter selected.
-const set_same_filter_transition = now(() => {
-  const sel = selected_filter.current;
+const setSameFilterTransition = now(() => {
+  const sel = selectedFilter.current;
   return sel !== null;
 }).implies(
   next(() => {
-    const sel = selected_filter.current;
+    const sel = selectedFilter.current;
     return sel !== null;
   }),
 );
 
 // addNew: when pending text is non-blank, committing clears the input.
-const add_new_transition = now(() => {
-  const input = new_todo_input.current;
+const addNewTransition = now(() => {
+  const input = newTodoInput.current;
   if (!input) return false;
-  const trimmed = input.pending_text.trim();
+  const trimmed = input.pendingText.trim();
   return trimmed !== "";
 }).implies(
   next(() => {
-    const input = new_todo_input.current;
-    return !!input && input.pending_text.trim() === "";
+    const input = newTodoInput.current;
+    return !!input && input.pendingText.trim() === "";
   }),
 );
 
 // checkOne: after checking, there is at least one checked item.
-const check_one_transition = now(() => {
-  const sel = selected_filter.current;
+const checkOneTransition = now(() => {
+  const sel = selectedFilter.current;
   return sel === "All" || sel === "Active";
 }).implies(
   next(() => {
-    return num_checked.current >= 1;
+    return itemsCheckedCount.current >= 1;
   }),
 );
 
 // uncheckOne: after unchecking, there is at least one unchecked (if any items).
-const uncheck_one_transition = now(() => {
-  const sel = selected_filter.current;
+const uncheckOneTransition = now(() => {
+  const sel = selectedFilter.current;
   return sel === "All" || sel === "Completed";
 }).implies(
   next(() => {
-    const n_items_now = num_items.current;
-    const n_unchecked_now = num_unchecked.current;
-    return n_items_now === 0 || n_unchecked_now >= 1;
+    const itemsNowCount = itemsCount.current;
+    const uncheckedNowCount = itemsUncheckedCount.current;
+    return itemsNowCount === 0 || uncheckedNowCount >= 1;
   }),
 );
 
 // delete: if there are items, deleting does not *increase* item count.
-const delete_transition = now(() => {
-  return num_items.current > 0;
+const deleteTransition = now(() => {
+  return itemsCount.current > 0;
 }).implies(
   next(() => {
-    return num_items.current >= 0;
+    return itemsCount.current >= 0;
   }),
 );
 
 // toggleAll: after toggle-all, all items are either checked or unchecked.
-const toggle_all_transition = now(() => {
-  const sel = selected_filter.current;
-  return sel !== null && num_items.current > 0;
+const toggleAllTransition = now(() => {
+  const sel = selectedFilter.current;
+  return sel !== null && itemsCount.current > 0;
 }).implies(
   next(() => {
-    const n_items_now = num_items.current;
-    const n_checked_now = num_checked.current;
-    const n_unchecked_now = num_unchecked.current;
+    const itemsNowCount = itemsCount.current;
+    const checkedNowCount = itemsCheckedCount.current;
+    const uncheckedNowCount = itemsUncheckedCount.current;
     return (
-      n_items_now === 0 ||
-      n_checked_now === n_items_now ||
-      n_unchecked_now === n_items_now
+      itemsNowCount === 0 ||
+      checkedNowCount === itemsNowCount ||
+      uncheckedNowCount === itemsNowCount
     );
   }),
 );
 
 // startEditing: from 0 items in edit mode, we can enter edit mode.
-const start_editing_transition = now(() => {
-  return num_in_edit_mode.current === 0 && num_items.current > 0;
+const startEditingTransition = now(() => {
+  return itemsInEditModeCount.current === 0 && itemsCount.current > 0;
 }).implies(
   next(() => {
-    return num_in_edit_mode.current === 1 && !!edit_input.current?.active;
+    return itemsInEditModeCount.current === 1 && !!editInput.current?.active;
   }),
 );
 
 // enterEditText: editing text keeps us in edit mode with an edit input.
-const enter_edit_text_transition = now(() => {
-  return is_in_edit_mode.current && edit_input.current != null;
+const enterEditTextTransition = now(() => {
+  return isInEditMode.current && editInput.current != null;
 }).implies(
   next(() => {
-    return is_in_edit_mode.current && edit_input.current != null;
+    return isInEditMode.current && editInput.current != null;
   }),
 );
 
 // abortEdit: leaving edit mode via abort.
-const abort_edit_transition = now(() => {
-  return is_in_edit_mode.current;
+const abortEditTransition = now(() => {
+  return isInEditMode.current;
 }).implies(
   next(() => {
-    return !is_in_edit_mode.current;
+    return !isInEditMode.current;
   }),
 );
 
 // commitEdit: leaving edit mode via commit.
-const commit_edit_transition = now(() => {
-  return is_in_edit_mode.current;
+const commitEditTransition = now(() => {
+  return isInEditMode.current;
 }).implies(
   next(() => {
-    return !is_in_edit_mode.current;
+    return !isInEditMode.current;
   }),
 );
 
 // enterEditMode: a more permissive “entering edit mode” transition.
-const enter_edit_mode_transition = now(() => {
-  return num_in_edit_mode.current === 0 && num_items.current > 0;
+const enterEditModeTransition = now(() => {
+  return itemsInEditModeCount.current === 0 && itemsCount.current > 0;
 }).implies(
   next(() => {
-    return is_in_edit_mode.current;
+    return isInEditMode.current;
   }),
 );
 
 // editModeTransition: staying in or leaving edit mode.
-const edit_mode_transition = now(() => {
-  return is_in_edit_mode.current;
+const editModeTransition = now(() => {
+  return isInEditMode.current;
 }).implies(
   next(() => {
     // Next step: either still in edit mode or has exited; always true.
@@ -497,21 +605,128 @@ const edit_mode_transition = now(() => {
 // Combined step relation and exported step property
 // -------------------------------------------------
 
-const todomvc_step_relation = focus_new_todo_transition
-  .or(enter_new_todo_text_transition)
-  .or(change_filter_transition)
-  .or(set_same_filter_transition)
-  .or(add_new_transition)
-  .or(check_one_transition)
-  .or(uncheck_one_transition)
-  .or(delete_transition)
-  .or(toggle_all_transition)
-  .or(start_editing_transition)
-  .or(enter_edit_text_transition)
-  .or(abort_edit_transition)
-  .or(commit_edit_transition)
-  .or(enter_edit_mode_transition)
-  .or(edit_mode_transition);
+const todomvcStepRelation = focusNewTodoTransition
+  .or(enterNewTodoTextTransition)
+  .or(changeFilterTransition)
+  .or(setSameFilterTransition)
+  .or(addNewTransition)
+  .or(checkOneTransition)
+  .or(uncheckOneTransition)
+  .or(deleteTransition)
+  .or(toggleAllTransition)
+  .or(startEditingTransition)
+  .or(enterEditTextTransition)
+  .or(abortEditTransition)
+  .or(commitEditTransition)
+  .or(enterEditModeTransition)
+  .or(editModeTransition);
 
 // Step property: in every step, one of the allowed transitions holds.
-export const todomvc_step_transitions = always(todomvc_step_relation);
+export const todomvcStepTransitions = always(todomvcStepRelation);
+
+// -------------------------------------------------
+// Action Generators
+// -------------------------------------------------
+
+// Select a filter that's not currently selected
+export const selectOtherFilter = actions(() => {
+  if (isInEditMode.current) return [];
+
+  const links = unselectedFilterLinks.current;
+  return links.map(link => ({ Click: link }));
+});
+
+// Select the same filter (re-click)
+export const selectSameFilter = actions(() => {
+  if (isInEditMode.current) return [];
+
+  const link = selectedFilterLink.current;
+  return link ? [{ Click: link }] : [];
+});
+
+// Toggle all todos
+export const toggleAllTodos = actions(() => {
+  if (isInEditMode.current) return [];
+  if (itemsCount.current === 0) return [];
+
+  const target = toggleAllLabelTarget.current;
+  return target ? [{ Click: target }] : [];
+});
+
+// TODO: Double-click to edit a todo - not yet supported by Bombadil
+// Bombadil doesn't currently have a DoubleClick action type, so this is commented out.
+// The flatMap approach below would just generate multiple single-click options, not a sequence.
+// export const editTodo = actions(() => {
+//   if (isInEditMode.current) return [];
+//   if (itemsCount.current === 0) return [];
+//
+//   const labels = todoLabels.current;
+//   return labels.map(label => ({ DoubleClick: label })); // Need DoubleClick action type
+// });
+
+// Delete a todo
+export const deleteTodo = actions(() => {
+  if (isInEditMode.current) return [];
+  if (itemsCount.current === 0) return [];
+
+  const buttons = deleteButtons.current;
+  return buttons.map(btn => ({ Click: btn }));
+});
+
+// Type text in the new todo input
+export const typePendingText = actions(() => {
+  const input = newTodoInput.current;
+  if (!input || !input.active) return [];
+  if (isInEditMode.current) return [];
+
+  return [
+    { TypeText: { text: " ", delayMillis: 50 } },
+    { TypeText: { text: "a", delayMillis: 50 } },
+    { TypeText: { text: "b", delayMillis: 50 } },
+    { PressKey: { code: 8 } }, // Backspace
+  ];
+});
+
+// Type text in edit input
+export const typeEditText = actions(() => {
+  if (!isInEditMode.current) return [];
+  const input = editInput.current;
+  if (!input) return [];
+
+  return [
+    { TypeText: { text: "c", delayMillis: 50 } },
+    { PressKey: { code: 8 } }, // Backspace
+  ];
+});
+
+// Abort editing (press Escape)
+export const abortEdit = actions(() => {
+  if (!isInEditMode.current) return [];
+
+  return [
+    { PressKey: { code: 27 } }, // Escape
+  ];
+});
+
+// Commit edit (press Enter)
+export const commitEdit = actions(() => {
+  if (!isInEditMode.current) return [];
+  const input = editInput.current;
+  if (!input) return [];
+
+  return [
+    { PressKey: { code: 13 } }, // Enter
+  ];
+});
+
+// Create a new todo (press Enter when there's text)
+export const createTodo = actions(() => {
+  const input = newTodoInput.current;
+  if (!input || !input.active) return [];
+  if (input.pendingText.trim() === "") return [];
+  if (isInEditMode.current) return [];
+
+  return [
+    { PressKey: { code: 13 } }, // Enter
+  ];
+});
