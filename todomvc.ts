@@ -1,6 +1,18 @@
 import { always, extract, now, next, actions } from "@antithesishq/bombadil";
 
-export * from "@antithesishq/bombadil/defaults";
+// Import selectively from defaults, excluding navigation (which includes Reload)
+export {
+  noHttpErrorCodes,
+  noUncaughtExceptions,
+  noUnhandledPromiseRejections,
+  noConsoleErrors,
+} from "@antithesishq/bombadil/defaults/properties";
+
+export {
+  scroll,
+  clicks,
+  inputs,
+} from "@antithesishq/bombadil/defaults/actions";
 
 // -------------------------------------------------
 // Helpers
@@ -44,6 +56,16 @@ function arraysEqual(a: unknown[] | null, b: unknown[] | null): boolean {
 
 function getCenterPoint(el: Element): { x: number; y: number } | null {
   const rect = el.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+  }
+  return null;
+}
+
+function getCenterPointFromRect(rect: DOMRect): { x: number; y: number } | null {
   if (rect.width > 0 && rect.height > 0) {
     return {
       x: rect.left + rect.width / 2,
@@ -160,10 +182,12 @@ const newTodoInput = extract((state) => {
 
   const pendingText = el.value ?? "";
   const active = state.document.activeElement === el;
+  const rect = el.getBoundingClientRect();
 
   return {
     pendingText,
     active,
+    rect,
   };
 });
 
@@ -602,6 +626,24 @@ export const todomvcStepTransitions = always(todomvcStepRelation);
 // -------------------------------------------------
 // Action Generators
 // -------------------------------------------------
+
+// Always provide a navigation action as fallback to give React time to mount
+// Focus the new todo input if it's not active
+export const focusNewTodoInput = actions(() => {
+  const input = newTodoInput.current;
+  if (!input) return [];
+  if (input.active) return [];
+  if (isInEditMode.current) return [];
+
+  const point = getCenterPointFromRect(input.rect);
+  if (!point) return [];
+
+  const target: ClickTarget = {
+    name: "new-todo-input",
+    point,
+  };
+  return [{ Click: target }];
+});
 
 // Select a filter that's not currently selected
 export const selectOtherFilter = actions(() => {
