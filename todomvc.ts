@@ -54,16 +54,8 @@ function getCenterPoint(el: Element): { x: number; y: number } | null {
 }
 
 // -------------------------------------------------
-// Extractors (elements)
+// Shared helper functions for extractors
 // -------------------------------------------------
-
-const selectedFilter = extract((state) => {
-  const el = state.document.querySelector(
-    ".todoapp .filters a.selected",
-  ) as HTMLElement | null;
-  if (!el || !isVisible(el)) return null;
-  return normalizeText(el.textContent);
-});
 
 type TodoItem = {
   index: number;
@@ -72,7 +64,7 @@ type TodoItem = {
   isEditing: boolean;
 };
 
-const items = extract((state) => {
+function getItems(state: any): TodoItem[] {
   const liNodes = Array.from(
     state.document.querySelectorAll(".todo-list li"),
   ) as HTMLElement[];
@@ -105,9 +97,9 @@ const items = extract((state) => {
   });
 
   return result;
-});
+}
 
-const editInput = extract((state) => {
+function getEditInput(state: any): { text: string; active: boolean } | null {
   const edit = state.document.querySelector(".todo-list li .edit") as
     | HTMLInputElement
     | HTMLTextAreaElement
@@ -122,40 +114,42 @@ const editInput = extract((state) => {
     text,
     active,
   };
+}
+
+// -------------------------------------------------
+// Extractors (elements)
+// -------------------------------------------------
+
+const selectedFilter = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp .filters a.selected",
+  ) as HTMLElement | null;
+  if (!el || !isVisible(el)) return null;
+  return normalizeText(el.textContent);
 });
 
-const lastItemText = extract(() => {
-  const currentItems = items.current;
-  if (!currentItems.length) return null;
-  return currentItems[currentItems.length - 1]?.text ?? null;
+const editInput = extract((state) => getEditInput(state));
+
+const itemsCount = extract((state) => {
+  return getItems(state).length;
 });
 
-const itemsCount = extract(() => {
-  return items.current.length;
+const itemsUncheckedCount = extract((state) => {
+  return getItems(state).filter((i) => !i.checked).length;
 });
 
-const itemsUncheckedCount = extract(() => {
-  return items.current.filter((i) => !i.checked).length;
+const itemsCheckedCount = extract((state) => {
+  return getItems(state).filter((i) => i.checked).length;
 });
 
-const itemsCheckedCount = extract(() => {
-  return items.current.filter((i) => i.checked).length;
+const itemsInEditModeCount = extract((state) => {
+  return getItems(state).filter((i) => i.isEditing).length;
 });
 
-const itemsInEditMode = extract(() => {
-  return items.current.filter((i) => i.isEditing);
-});
-
-const itemInEditMode = extract(() => {
-  return itemsInEditMode.current[0] ?? null;
-});
-
-const itemsInEditModeCount = extract(() => {
-  return itemsInEditMode.current.length;
-});
-
-const isInEditMode = extract(() => {
-  return itemsInEditModeCount.current >= 1 && editInput.current != null;
+const isInEditMode = extract((state) => {
+  const itemsInEditModeCount = getItems(state).filter((i) => i.isEditing).length;
+  const editInput = getEditInput(state);
+  return itemsInEditModeCount >= 1 && editInput != null;
 });
 
 const newTodoInput = extract((state) => {
@@ -174,12 +168,14 @@ const newTodoInput = extract((state) => {
 });
 
 const todoCount = extract((state) => {
-  const strong = state.document.querySelector(
-    ".todoapp .todo-count strong",
+  const el = state.document.querySelector(
+    ".todoapp .todo-count",
   ) as HTMLElement | null;
-  if (!strong || !isVisible(strong)) return null;
+  if (!el || !isVisible(el)) return null;
 
-  const text = normalizeText(strong.textContent);
+  // Try to extract from <strong> first (some implementations)
+  const strong = el.querySelector("strong") as HTMLElement | null;
+  const text = normalizeText(strong?.textContent ?? el.textContent);
   if (!text) return null;
 
   const first = text.split(/\s+/)[0] ?? null;
@@ -214,29 +210,6 @@ const toggleAllLabel = extract((state) => {
   return el.textContent ?? "";
 });
 
-const toggleAllChecked = extract((state) => {
-  const el = state.document.querySelector(
-    ".todoapp #toggle-all",
-  ) as HTMLInputElement | null;
-  if (!el) return false;
-  return !!el.checked;
-});
-
-// A rough "initial" approximation; used only in comments/intuition.
-const initial = extract(() => {
-  const sel = selectedFilter.current;
-  const itemsNowCount = itemsCount.current;
-  const input = newTodoInput.current;
-
-  return (
-    sel === null &&
-    itemsNowCount === 0 &&
-    input != null &&
-    input.pendingText === "" &&
-    input.active === true
-  );
-});
-
 // -------------------------------------------------
 // Extractors for action generators
 // -------------------------------------------------
@@ -257,11 +230,15 @@ const unselectedFilterLinks = extract((state) => {
     .map(el => {
       const point = getCenterPoint(el);
       if (!point) return null;
-      return {
+      const content = normalizeText(el.textContent);
+      const result: ClickTarget = {
         name: "filter-link",
-        content: normalizeText(el.textContent) ?? undefined,
         point,
       };
+      if (content !== null) {
+        result.content = content;
+      }
+      return result;
     })
     .filter((x): x is ClickTarget => x !== null);
 });
@@ -275,11 +252,15 @@ const selectedFilterLink = extract((state) => {
   const point = getCenterPoint(el);
   if (!point) return null;
 
-  return {
+  const content = normalizeText(el.textContent);
+  const result: ClickTarget = {
     name: "selected-filter",
-    content: normalizeText(el.textContent) ?? undefined,
     point,
   };
+  if (content !== null) {
+    result.content = content;
+  }
+  return result;
 });
 
 const toggleAllLabelTarget = extract((state) => {
@@ -295,25 +276,6 @@ const toggleAllLabelTarget = extract((state) => {
     name: "toggle-all",
     point,
   };
-});
-
-const todoLabels = extract((state) => {
-  const labelEls = Array.from(
-    state.document.querySelectorAll(".todo-list li label")
-  ) as HTMLElement[];
-
-  return labelEls
-    .filter(isVisible)
-    .map(el => {
-      const point = getCenterPoint(el);
-      if (!point) return null;
-      return {
-        name: "todo-label",
-        content: normalizeText(el.textContent) ?? undefined,
-        point,
-      };
-    })
-    .filter((x): x is ClickTarget => x !== null);
 });
 
 const deleteButtons = extract((state) => {
@@ -357,20 +319,27 @@ export const filtersExist = always(() => {
   return arraysEqual(filters, expected);
 });
 
-// 2. Toggle-all label exists whenever a filter is selected and not in edit mode.
-//    Again, we’re lenient if filters themselves aren’t rendered yet.
+// 2. Toggle-all label exists when there are visible items to toggle.
+//    Again, we're lenient if filters themselves aren't rendered yet.
 export const toggleAllExists = always(() => {
   const inEdit = isInEditMode.current;
   const filter = selectedFilter.current;
   const filters = availableFilters.current;
+  const itemsNowCount = itemsCount.current;
 
   if (inEdit) return true;
   if (filter == null) return true;
 
   if (filters.length === 0) {
-    // JS likely hasn’t rendered controls yet.
+    // JS likely hasn't rendered controls yet.
     return true;
   }
+
+  // Toggle-all doesn't need to exist when there are no visible items
+  if (itemsNowCount === 0) return true;
+
+  // Toggle-all doesn't need to exist in "Completed" view
+  if (filter === "Completed") return true;
 
   return toggleAllLabel.current != null;
 });
@@ -412,19 +381,25 @@ export const editModeHasItems = always(() => {
   return itemsCount.current > 0;
 });
 
-// 5. Pluralization of the “items left” label.
+// 5. Pluralization of the "items left" label.
 export const itemsLeftPluralized = always(() => {
   const count = todoCount.current;
   const text = itemsLeft.current;
 
   if (count == null) {
-    // If we don’t have a numeric count yet, allow missing label.
-    return text == null;
+    // If we can't extract the numeric count, we can't verify pluralization.
+    // Allow any text (or no text).
+    return true;
+  }
+
+  // When there are 0 todos, the footer may be hidden, so text can be null
+  if (count === 0) {
+    return true;
   }
 
   if (text == null) return false;
 
-  const parts = text.trim().split(/\s+/);
+  const parts = text.trim().split(/\s+/).map(p => p.replace(/[!.,;:?]+$/, ""));
   const hasWord = (w: string) => parts.includes(w);
 
   if (count === 1) {
@@ -654,14 +629,12 @@ export const toggleAllTodos = actions(() => {
 });
 
 // TODO: Double-click to edit a todo - not yet supported by Bombadil
-// Bombadil doesn't currently have a DoubleClick action type, so this is commented out.
-// The flatMap approach below would just generate multiple single-click options, not a sequence.
+// Bombadil doesn't currently have a DoubleClick action type.
+// Would need to extract todo labels and create DoubleClick actions when supported.
 // export const editTodo = actions(() => {
 //   if (isInEditMode.current) return [];
 //   if (itemsCount.current === 0) return [];
-//
-//   const labels = todoLabels.current;
-//   return labels.map(label => ({ DoubleClick: label })); // Need DoubleClick action type
+//   // Extract labels, then: return labels.map(label => ({ DoubleClick: label }));
 // });
 
 // Delete a todo

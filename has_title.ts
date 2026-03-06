@@ -1,4 +1,4 @@
-import { always, extract } from "bombadil";
+import { always, extract } from "@antithesishq/bombadil";
 
 const title = extract((state) => state.document.querySelector("h1")?.textContent ?? "");
 

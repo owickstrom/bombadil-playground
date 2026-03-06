@@ -1,4 +1,4 @@
-import { now, eventually, extract } from "bombadil";
+import { now, eventually, extract } from "@antithesishq/bombadil";
 
 const is_loading = extract((state) => !!state.document.querySelector("progress"));
 

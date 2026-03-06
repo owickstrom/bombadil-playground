@@ -1,5 +1,5 @@
-import { always, extract } from "bombadil";
-export * from "bombadil/defaults";
+import { always, extract } from "@antithesishq/bombadil";
+export * from "@antithesishq/bombadil/defaults";
 
 const h1 = extract(state => {
   const element = state.document.querySelector("h1");

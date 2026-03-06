@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:antithesishq.github.io)"
+      "WebFetch(domain:antithesishq.github.io)",
+      "Bash(nix --extra-experimental-features 'nix-command flakes' develop:*)"
     ]
   }
 }
