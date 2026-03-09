@@ -7,8 +7,15 @@
     bombadil.url = "github:antithesishq/bombadil/bundle-browser-js";
   };
 
-  outputs = { self, nixpkgs, flake-utils, bombadil }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+      bombadil,
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
@@ -18,17 +25,6 @@
           rev = "master";
           sha256 = "sha256-YlI6qx8Bm6atTJzYlQxp0qGpXJkoUxN+FnHyX0ALLgw=";
         };
-
-        # Wrapped chromium with headless flags
-        chromium-headless = pkgs.writeShellScriptBin "chromium" ''
-          exec ${pkgs.chromium}/bin/chromium \
-            --headless=new \
-            --no-sandbox \
-            --disable-gpu \
-            --disable-dev-shm-usage \
-            --disable-software-rasterizer \
-            "$@"
-        '';
 
         # Create a writable copy of todomvc in /tmp for building
         todomvc-build = pkgs.writeShellScriptBin "todomvc-build" ''
@@ -331,7 +327,7 @@
             bombadil.packages.${system}.default
             python3
             curl
-            chromium-headless
+            chromium
             todomvc-serve
             todomvc-build
             todomvc-test
@@ -359,5 +355,6 @@
             echo "  todomvc-serve              # Start server (port 8000)"
           '';
         };
-      });
+      }
+    );
 }
