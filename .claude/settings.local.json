@@ -14,7 +14,12 @@
       "Bash(kill:*)",
       "Bash(grep:*)",
       "Bash(nix --extra-experimental-features nix-command --extra-experimental-features flakes develop -c npm install --save-dev happy-dom)",
-      "Bash(nix --extra-experimental-features nix-command --extra-experimental-features flakes develop -c npm test -- --run)"
+      "Bash(nix --extra-experimental-features nix-command --extra-experimental-features flakes develop -c npm test -- --run)",
+      "Bash(npx vitest:*)",
+      "Bash(git -C /home/owi/projects/bombadil-playground log --oneline -10)",
+      "WebSearch",
+      "Bash(python3:*)",
+      "Bash(echo:*)"
     ]
   }
 }

@@ -7,16 +7,16 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1772747504,
-        "narHash": "sha256-3jZOleiC6reUrUODBtBTuOgfOlX906gWqLNliprxqnI=",
+        "lastModified": 1773055389,
+        "narHash": "sha256-BAlctzs9G8YukHtHLP50vilItbb5RtZZH3qrHOAjgCE=",
         "owner": "antithesishq",
         "repo": "bombadil",
-        "rev": "0188ba518da748ac103beb6af844dd841a5cce7b",
+        "rev": "bcf83bba0f2a2e664a9f7322cc5df101f6133cd2",
         "type": "github"
       },
       "original": {
         "owner": "antithesishq",
-        "ref": "bundle-browser-js",
+        "ref": "importable-files",
         "repo": "bombadil",
         "type": "github"
       }

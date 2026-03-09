@@ -16,12 +16,12 @@ const misspelled = extract(state => {
   const body = state.document.querySelector("body");
   if (!body) { return []; }
 
+  const ct = state.document.contentType || "";
+  if (!ct.includes("html")) { return []; }
+
   const words = [...getSpellCheckableWords(body)];
 
-  return words
-    .filter(word => !spell.correct(word))
-    .map(word => [word, spell.suggest(word)] as [string, string[]])
-    .filter(([_, suggestions]) => suggestions.length > 0);
+  return words.filter(word => !spell.correct(word));
 });
 
 export const no_spelling_errors = always(() => {

@@ -1,3 +1,21 @@
+// Common TLDs for identifying domain-like tokens to exclude from spell checking
+const TLDS = new Set([
+  // Generic
+  'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
+  // Common gTLDs
+  'io', 'dev', 'app', 'co', 'ai', 'me', 'tv', 'info', 'biz', 'pro',
+  'xyz', 'tech', 'cloud', 'blog', 'site', 'online', 'store', 'shop',
+  'gg', 'lol', 'page', 'run', 'codes', 'works', 'systems', 'design',
+  // Country codes commonly seen as domains
+  'uk', 'de', 'fr', 'es', 'it', 'nl', 'be', 'at', 'ch', 'se', 'no',
+  'dk', 'fi', 'pt', 'pl', 'cz', 'hu', 'ro', 'ie', 'ru', 'ua', 'jp',
+  'cn', 'kr', 'tw', 'hk', 'sg', 'au', 'nz', 'ca', 'mx', 'br', 'ar',
+  'in', 'za', 'il', 'ae', 'tr', 'gr',
+  // Tech-oriented ccTLDs
+  'rs', 'js', 'ts', 'py', 'go', 'sh', 'md', 'tf', 'st', 'cc', 'ws',
+  'fm', 'im', 'ac', 'to', 'ly',
+]);
+
 /**
  * Collects spell-checkable text from a DOM tree using stack-based traversal.
  * Ignores script/style/pre elements and elements with spellcheck="false".
@@ -32,8 +50,20 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
     'MAP',
   ]);
 
+  // Block-level elements that imply word boundaries
+  const BLOCK_TAGS = new Set([
+    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DETAILS',
+    'DIALOG', 'DIV', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'FIGURE',
+    'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER',
+    'HGROUP', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION',
+    'TABLE', 'UL', 'BR', 'TR', 'TD', 'TH', 'CAPTION', 'THEAD', 'TBODY',
+    'TFOOT', 'SUMMARY',
+  ]);
+
+  const view = root.ownerDocument.defaultView;
+
   const stack: Node[] = [root];
-  const textParts = [];
+  const textParts: string[] = [];
 
   while (stack.length > 0) {
     const node = stack.pop();
@@ -43,7 +73,9 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
     }
 
     // Check if this element should be skipped
-    if (node instanceof Element) {
+    // Use nodeType instead of instanceof Element for cross-realm safety
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element;
       // Skip if spellcheck attribute is explicitly set to "false"
       const spellcheck = node.getAttribute('spellcheck');
       if (spellcheck === 'false') {
@@ -51,8 +83,24 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
       }
 
       // Skip ignored element types
-      if (IGNORED_TAGS.has(node.tagName)) {
+      // Use toUpperCase() because SVG/MathML elements have lowercase tagName
+      const tag = node.tagName.toUpperCase();
+      if (IGNORED_TAGS.has(tag)) {
         continue;
+      }
+
+      // Check if element creates a block boundary using computed style,
+      // falling back to tag-based check in environments without layout
+      let isBlock = BLOCK_TAGS.has(tag);
+      if (view) {
+        const display = view.getComputedStyle(node).display;
+        if (display) {
+          isBlock = !display.startsWith('inline') && display !== 'contents' && display !== 'none';
+        }
+      }
+
+      if (isBlock) {
+        textParts.push(' ');
       }
     }
 
@@ -74,8 +122,6 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
     }
   }
 
-  // Join all text exactly like textContent (concatenate directly)
-  // The whitespace is already in the text nodes themselves
   const fullText = textParts.join('');
 
   // Collapse multiple whitespace characters to single space
@@ -85,11 +131,7 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
   return extractWords(collapsed);
 }
 
-/**
- * Extracts words from text, handling contractions with apostrophes.
- * Normalizes Unicode apostrophes to ASCII and filters out numbers and code identifiers.
- */
-export function extractWords(text: string): Set<string> {
+function extractWords(text: string): Set<string> {
   // Decode HTML entities for apostrophes (&#39;, &apos;, &#8217;, etc.)
   let decoded = text
     .replace(/&#39;/g, "'")
@@ -100,20 +142,37 @@ export function extractWords(text: string): Set<string> {
     .replace(/&lsquo;/g, "'");
 
   // Normalize all apostrophe variants to ASCII apostrophe
-  const normalized = decoded.replace(/[''ʼ′`´]/g, "'");
+  const normalized = decoded.replace(/[\u2018\u2019\u02BC\u2032`\u00B4]/g, "'");
 
-  // Split on anything that's NOT a letter or ASCII apostrophe
-  const words = normalized.split(/[^a-zA-Z']+/).filter(w => w.length > 0);
+  // Remove tokens that look like URLs or domains (word.tld)
+  const noUrls = normalized.replace(/\S+/g, token => {
+    // Explicit URLs
+    if (/^https?:\/\//i.test(token)) return ' ';
+    // Tokens containing .tld (check all dot-separated parts for multi-part TLDs like .id.au)
+    for (const match of token.matchAll(/\.([a-z]+)/gi)) {
+      if (TLDS.has(match[1].toLowerCase())) return ' ';
+    }
+    return token;
+  });
+
+  // Split on anything that's NOT a letter (Unicode-aware) or ASCII apostrophe
+  const words = noUrls.split(/[^\p{L}']+/u).filter(w => w.length > 0);
 
   return new Set(
-    words.filter(word => {
-      // Exclude empty strings
-      if (word === "") return false;
-      // Exclude numbers
-      if (!isNaN(Number(word))) return false;
-      // Exclude code identifiers (starting with underscore or containing underscore+number)
-      if (word.startsWith("_") || /_\d/.test(word)) return false;
-      return true;
-    })
+    words
+      .map(word => word.replace(/^'+|'+$/g, ''))  // strip leading/trailing apostrophes
+      .filter(word => {
+        // Exclude empty strings
+        if (word === "") return false;
+        // Exclude numbers
+        if (!isNaN(Number(word))) return false;
+        // Exclude acronyms (words starting with 2+ uppercase letters)
+        if (/^[A-Z]{2}/.test(word)) return false;
+        // Exclude camelCase identifiers (lowercase followed by uppercase)
+        if (/[a-z][A-Z]/.test(word)) return false;
+        // Exclude words that are all lowercase with no vowels (likely abbreviations)
+        if (/^[a-z]+$/.test(word) && !/[aeiouy]/i.test(word)) return false;
+        return true;
+      })
   );
 }

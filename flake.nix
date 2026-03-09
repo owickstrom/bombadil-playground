@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    bombadil.url = "github:antithesishq/bombadil/bundle-browser-js";
+    bombadil.url = "github:antithesishq/bombadil/importable-files";
   };
 
   outputs =
