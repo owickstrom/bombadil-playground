@@ -4,7 +4,12 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    bombadil.url = "github:antithesishq/bombadil/importable-files";
+    bombadil.url = "github:antithesishq/bombadil/wait-action";
+  };
+
+  nixConfig = {
+    extra-substituters = "https://bombadil.cachix.org";
+    extra-trusted-public-keys = "bombadil.cachix.org-1:6L4epM9zwhEcAwouNgBa8ENtsgLNfedtQgqtdnQhZiM=";
   };
 
   outputs =

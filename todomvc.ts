@@ -1,6 +1,5 @@
 import { always, extract, now, next, actions } from "@antithesishq/bombadil";
 
-// Import selectively from defaults, excluding navigation (which includes Reload)
 export {
   noHttpErrorCodes,
   noUncaughtExceptions,
@@ -12,6 +11,7 @@ export {
   scroll,
   clicks,
   inputs,
+  navigation,
 } from "@antithesishq/bombadil/defaults/actions";
 
 // -------------------------------------------------
@@ -627,7 +627,18 @@ export const todomvcStepTransitions = always(todomvcStepRelation);
 // Action Generators
 // -------------------------------------------------
 
-// Always provide a navigation action as fallback to give React time to mount
+// Wait for the app to load when the screen is blank (e.g. React hasn't mounted yet)
+export const waitForAppToLoad = actions(() => {
+  const input = newTodoInput.current;
+  const filters = availableFilters.current;
+
+  // If there's no new-todo input and no filters, the app hasn't rendered yet
+  if (!input && filters.length === 0) {
+    return ["Wait"];
+  }
+  return [];
+});
+
 // Focus the new todo input if it's not active
 export const focusNewTodoInput = actions(() => {
   const input = newTodoInput.current;
