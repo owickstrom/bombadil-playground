@@ -12,7 +12,9 @@
       "Bash(pkill:*)",
       "Bash(pgrep:*)",
       "Bash(kill:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(nix --extra-experimental-features nix-command --extra-experimental-features flakes develop -c npm install --save-dev happy-dom)",
+      "Bash(nix --extra-experimental-features nix-command --extra-experimental-features flakes develop -c npm test -- --run)"
     ]
   }
 }
