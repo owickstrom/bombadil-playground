@@ -24,9 +24,10 @@ nix --extra-experimental-features 'nix-command flakes' develop --command bash -c
   > /tmp/spellcheck_output.txt 2>&1
 ```
 
-Use a 2-minute timeout. Exit code 2 = violation (misspelled words found).
-Exit code 1 = timeout (no violations, test ran to completion). Exit code 0 =
-clean pass.
+The test does not terminate on its own — it explores indefinitely until a
+violation is found or the timeout expires. Use a 2-minute timeout. Exit code
+2 = violation (misspelled words found). Exit code 1 = error/panic. Timeout
+(no violations found during the run) means the test passed.
 
 ## Extracting flagged words
 

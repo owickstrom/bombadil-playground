@@ -8,10 +8,12 @@ import aff from "./node_modules/dictionary-en/index.aff" with { type: "text" };
 // @ts-ignore
 import dicUs from "./node_modules/dictionary-en/index.dic" with { type: "text" };
 // @ts-ignore
+import dicGb from "./node_modules/dictionary-en-gb/index.dic" with { type: "text" };
+// @ts-ignore
 import customDic from "./custom.dic" with { type: "text" };
 
 const misspelled = extract(state => {
-  const spell = new NSpell(aff, dicUs).personal(customDic);
+  const spell = new NSpell(aff, dicUs).dictionary(dicGb).personal(customDic);
 
   const body = state.document.querySelector("body");
   if (!body) { return []; }
