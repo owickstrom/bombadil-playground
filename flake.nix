@@ -23,6 +23,7 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+        bombadil-manual = bombadil.packages.${system}.manual;
 
         todomvc = pkgs.fetchFromGitHub {
           owner = "tastejs";
@@ -343,8 +344,12 @@
 
           TODOMVC = "${todomvc}";
           TODOMVC_WORK = "/tmp/todomvc-work";
+          BOMBADIL_MANUAL = "${bombadil-manual}";
 
           shellHook = ''
+            # Symlink the Bombadil manual from the Nix store into the skill directory
+            ln -sf "$BOMBADIL_MANUAL/bombadil-manual.txt" .claude/skills/edit-bombadil-spec/bombadil-manual.txt
+
             echo "Bombadil playground development environment"
             echo "node: $(node --version)"
             echo "tsc: $(tsc --version)"
