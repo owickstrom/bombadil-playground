@@ -165,7 +165,7 @@
             ["exoskeleton"]="."
             ["gwt"]="."
             ["javascript-es5"]="dist"
-            ["javascript-es6"]="src"
+            ["javascript-es6"]="dist"
             ["jquery"]="."
             ["jsblocks"]="."
             ["js_of_ocaml"]="."

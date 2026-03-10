@@ -302,6 +302,35 @@ const toggleAllLabelTarget = extract((state) => {
   };
 });
 
+const todoLabels = extract((state) => {
+  const liNodes = Array.from(
+    state.document.querySelectorAll(".todo-list li"),
+  ) as HTMLElement[];
+
+  return liNodes
+    .filter((li) => {
+      const style = state.window.getComputedStyle(li);
+      if (style.display === "none") return false;
+      return !li.classList.contains("editing");
+    })
+    .map((li) => {
+      const label = li.querySelector("label") as HTMLElement | null;
+      if (!label || !isVisible(label)) return null;
+      const point = getCenterPoint(label);
+      if (!point) return null;
+      const content = normalizeText(label.textContent);
+      const result: ClickTarget = {
+        name: "todo-label",
+        point,
+      };
+      if (content !== null) {
+        result.content = content;
+      }
+      return result;
+    })
+    .filter((x): x is ClickTarget => x !== null);
+});
+
 const deleteButtons = extract((state) => {
   const buttons = Array.from(
     state.document.querySelectorAll(".todoapp .destroy")
@@ -681,14 +710,16 @@ export const toggleAllTodos = actions(() => {
   return target ? [{ Click: target }] : [];
 });
 
-// TODO: Double-click to edit a todo - not yet supported by Bombadil
-// Bombadil doesn't currently have a DoubleClick action type.
-// Would need to extract todo labels and create DoubleClick actions when supported.
-// export const editTodo = actions(() => {
-//   if (isInEditMode.current) return [];
-//   if (itemsCount.current === 0) return [];
-//   // Extract labels, then: return labels.map(label => ({ DoubleClick: label }));
-// });
+// Double-click a todo label to enter edit mode
+export const editTodo = actions(() => {
+  if (isInEditMode.current) return [];
+  if (itemsCount.current === 0) return [];
+
+  const labels = todoLabels.current;
+  return labels.map((label) => ({
+    DoubleClick: { ...label, delayMillis: 50 },
+  }));
+});
 
 // Delete a todo
 export const deleteTodo = actions(() => {
