@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    bombadil.url = "github:antithesishq/bombadil/wait-action";
+    bombadil.url = "github:antithesishq/bombadil";
   };
 
   nixConfig = {
@@ -110,12 +110,13 @@
 
           # Check for required argument
           if [ $# -eq 0 ]; then
-            echo "Usage: $0 <implementation|all>"
+            echo "Usage: $0 <implementation|all> [bombadil-options...]"
             echo ""
             echo "Examples:"
             echo "  $0 react              # Test React implementation"
             echo "  $0 dojo               # Test Dojo implementation"
             echo "  $0 all                # Test all implementations"
+            echo "  $0 react --headless   # Pass extra options to bombadil"
             echo ""
             echo "Available implementations:"
             echo "  angular, angular-dart, angularjs_require, aurelia, backbone,"
@@ -133,6 +134,8 @@
           PORT="''${PORT:-8000}"
           SPEC="todomvc.ts"
           IMPL="$1"
+          shift
+          EXTRA_ARGS=("$@")
 
           # Use writable copy if it exists, otherwise read-only TODOMVC
           TODOMVC_DIR="''${TODOMVC_WORK:-$TODOMVC}"
@@ -174,15 +177,15 @@
             ["polymer"]="."
             ["preact"]="dist"
             ["ractive"]="."
-            ["react"]="public"
-            ["react-redux"]="public"
+            ["react"]="dist"
+            ["react-redux"]="dist"
             ["reagent"]="."
             ["riotjs"]="."
-            ["svelte"]="."
+            ["svelte"]="dist"
             ["typescript-angular"]="."
             ["typescript-backbone"]="."
-            ["typescript-react"]="."
-            ["vue"]="."
+            ["typescript-react"]="dist"
+            ["vue"]="dist"
             ["web-components"]="styles"
           )
 
@@ -210,7 +213,7 @@
             echo "Spec: $SPEC"
             echo "========================================"
 
-            bombadil test --exit-on-violation "$url" "$SPEC"
+            bombadil test --exit-on-violation "$url" "$SPEC" "''${EXTRA_ARGS[@]}"
           }
 
           # Build implementations if testing specific impl or all
