@@ -4,20 +4,19 @@ Browser testing specs using the [Bombadil](https://github.com/antithesishq/bomba
 
 ## Development Environment
 
-This project uses Nix flakes. All commands must be wrapped in `nix develop`:
+This project uses Nix flakes. You should already be in a Nix shell with
+everything available. If not, wrap commands in `nix develop`:
 
 ```sh
 nix --extra-experimental-features 'nix-command flakes' develop --command <cmd>
 ```
-
-Or if you have `direnv` set up, `.envrc` will load the shell automatically.
 
 ## Running Tests
 
 Unit tests use Vitest with happy-dom:
 
 ```sh
-nix --extra-experimental-features 'nix-command flakes' develop --command npm test
+npm test
 ```
 
 ## TodoMVC Testing

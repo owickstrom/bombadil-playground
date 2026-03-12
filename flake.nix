@@ -24,6 +24,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         bombadil-manual = bombadil.packages.${system}.manual;
+        bombadil-types = bombadil.packages.${system}.types;
 
         todomvc = pkgs.fetchFromGitHub {
           owner = "tastejs";
@@ -345,10 +346,16 @@
           TODOMVC = "${todomvc}";
           TODOMVC_WORK = "/tmp/todomvc-work";
           BOMBADIL_MANUAL = "${bombadil-manual}";
+          BOMBADIL_TYPES = "${bombadil-types}";
 
           shellHook = ''
             # Symlink the Bombadil manual from the Nix store into the skill directory
             ln -sf "$BOMBADIL_MANUAL/bombadil-manual.txt" .claude/skills/edit-bombadil-spec/bombadil-manual.txt
+
+            # Symlink the Bombadil types from Nix store into node_modules
+            mkdir -p node_modules/@antithesishq/bombadil
+            ln -sf "$BOMBADIL_TYPES/dist" node_modules/@antithesishq/bombadil/dist
+            ln -sf "$BOMBADIL_TYPES/package.json" node_modules/@antithesishq/bombadil/package.json
 
             echo "Bombadil playground development environment"
             echo "node: $(node --version)"

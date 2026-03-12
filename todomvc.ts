@@ -1,4 +1,4 @@
-import { always, extract, now, next, actions } from "@antithesishq/bombadil";
+import { always, extract, now, next, actions, weighted } from "@antithesishq/bombadil";
 
 export {
   noHttpErrorCodes,
@@ -7,7 +7,7 @@ export {
   noConsoleErrors,
 } from "@antithesishq/bombadil/defaults/properties";
 
-export {
+import {
   scroll,
   clicks,
   inputs,
@@ -228,7 +228,7 @@ const availableFilters = extract((state) => {
 
 const toggleAllLabel = extract((state) => {
   const el = state.document.querySelector(
-    ".todoapp label[for=toggle-all]",
+    ".todoapp label[for^=toggle-all]",
   ) as HTMLElement | null;
   if (!el || !isVisible(el)) return null;
   return el.textContent ?? "";
@@ -656,8 +656,12 @@ export const todomvcStepTransitions = always(todomvcStepRelation);
 // Action Generators
 // -------------------------------------------------
 
+// -------------------------------------------------
+// Individual action generators (not exported)
+// -------------------------------------------------
+
 // Wait for the app to load when the screen is blank (e.g. React hasn't mounted yet)
-export const waitForAppToLoad = actions(() => {
+const waitForAppToLoad = actions(() => {
   const input = newTodoInput.current;
   const filters = availableFilters.current;
 
@@ -669,7 +673,7 @@ export const waitForAppToLoad = actions(() => {
 });
 
 // Focus the new todo input if it's not active
-export const focusNewTodoInput = actions(() => {
+const focusNewTodoInput = actions(() => {
   const input = newTodoInput.current;
   if (!input) return [];
   if (input.active) return [];
@@ -686,7 +690,7 @@ export const focusNewTodoInput = actions(() => {
 });
 
 // Select a filter that's not currently selected
-export const selectOtherFilter = actions(() => {
+const selectOtherFilter = actions(() => {
   if (isInEditMode.current) return [];
 
   const links = unselectedFilterLinks.current;
@@ -694,7 +698,7 @@ export const selectOtherFilter = actions(() => {
 });
 
 // Select the same filter (re-click)
-export const selectSameFilter = actions(() => {
+const selectSameFilter = actions(() => {
   if (isInEditMode.current) return [];
 
   const link = selectedFilterLink.current;
@@ -702,7 +706,7 @@ export const selectSameFilter = actions(() => {
 });
 
 // Toggle all todos
-export const toggleAllTodos = actions(() => {
+const toggleAllTodos = actions(() => {
   if (isInEditMode.current) return [];
   if (itemsCount.current === 0) return [];
 
@@ -711,7 +715,7 @@ export const toggleAllTodos = actions(() => {
 });
 
 // Double-click a todo label to enter edit mode
-export const editTodo = actions(() => {
+const editTodo = actions(() => {
   if (isInEditMode.current) return [];
   if (itemsCount.current === 0) return [];
 
@@ -722,7 +726,7 @@ export const editTodo = actions(() => {
 });
 
 // Delete a todo
-export const deleteTodo = actions(() => {
+const deleteTodo = actions(() => {
   if (isInEditMode.current) return [];
   if (itemsCount.current === 0) return [];
 
@@ -731,7 +735,7 @@ export const deleteTodo = actions(() => {
 });
 
 // Type text in the new todo input
-export const typePendingText = actions(() => {
+const typePendingText = actions(() => {
   const input = newTodoInput.current;
   if (!input || !input.active) return [];
   if (isInEditMode.current) return [];
@@ -745,7 +749,7 @@ export const typePendingText = actions(() => {
 });
 
 // Type text in edit input
-export const typeEditText = actions(() => {
+const typeEditText = actions(() => {
   if (!isInEditMode.current) return [];
   const input = editInput.current;
   if (!input) return [];
@@ -757,7 +761,7 @@ export const typeEditText = actions(() => {
 });
 
 // Abort editing (press Escape)
-export const abortEdit = actions(() => {
+const abortEdit = actions(() => {
   if (!isInEditMode.current) return [];
 
   return [
@@ -766,7 +770,7 @@ export const abortEdit = actions(() => {
 });
 
 // Commit edit (press Enter)
-export const commitEdit = actions(() => {
+const commitEdit = actions(() => {
   if (!isInEditMode.current) return [];
   const input = editInput.current;
   if (!input) return [];
@@ -777,7 +781,7 @@ export const commitEdit = actions(() => {
 });
 
 // Create a new todo (press Enter when there's text)
-export const createTodo = actions(() => {
+const createTodo = actions(() => {
   const input = newTodoInput.current;
   if (!input || !input.active) return [];
   if (input.pendingText.trim() === "") return [];
@@ -787,3 +791,37 @@ export const createTodo = actions(() => {
     { PressKey: { code: 13 } }, // Enter
   ];
 });
+
+// -------------------------------------------------
+// Weighted action tree (exported)
+// -------------------------------------------------
+
+// Constructive actions (higher weight): create content, interact with UI
+// Lower weight actions: navigation, scrolling, waiting
+export const todomvcActions = weighted([
+  // High weight: typing and creating todos (10)
+  [10, typePendingText],
+  [10, createTodo],
+  [10, typeEditText],
+
+  // Medium-high weight: clicking, toggling, editing (7)
+  [7, focusNewTodoInput],
+  [7, editTodo],
+  [7, toggleAllTodos],
+  [7, commitEdit],
+
+  // Medium weight: filter changes, deletion (5)
+  [5, selectOtherFilter],
+  [5, deleteTodo],
+  [5, abortEdit],
+
+  // Low weight: repetitive or less important actions (2)
+  [2, selectSameFilter],
+
+  // Very low weight: default actions and waiting (1)
+  [1, clicks],
+  [1, inputs],
+  [1, scroll],
+  [1, navigation],
+  [1, waitForAppToLoad],
+]);

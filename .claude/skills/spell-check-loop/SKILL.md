@@ -19,9 +19,7 @@ The user provides the target URL. Default spec is `spellcheck.ts`.
 ## Running the test
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' develop --command bash -c \
-  'RUST_LOG=debug bombadil test --headless --exit-on-violation <URL> spellcheck.ts' \
-  > /tmp/spellcheck_output.txt 2>&1
+RUST_LOG=debug bombadil test --headless --exit-on-violation <URL> spellcheck.ts > /tmp/spellcheck_output.txt 2>&1
 ```
 
 The test does not terminate on its own — it explores indefinitely until a
@@ -91,8 +89,7 @@ current filters before making changes.
 After any extractor changes, run the unit tests:
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' develop --command \
-  npm test
+npm test
 ```
 
 Add tests for new filtering logic.

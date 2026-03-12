@@ -35,11 +35,11 @@ Read it.
 To verify that your changes are correct, run:
 
 ```
-nix --extra-experimental-features 'nix-command flakes' develop --command tsc --noEmit
+tsc --noEmit
 ```
 
 To run tests, generally use this form of command:
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' develop --command bombadil test --exit-on-violation https://example.com spec.ts
+bombadil test --exit-on-violation https://example.com spec.ts
 ```
