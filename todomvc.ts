@@ -168,6 +168,8 @@ const itemsInEditModeCount = extract((state) => {
   return getItems(state).filter((i) => i.isEditing).length;
 });
 
+const items = extract((state) => getItems(state));
+
 const isInEditMode = extract((state) => {
   const itemsInEditModeCount = getItems(state).filter((i) => i.isEditing).length;
   const editInput = getEditInput(state);
@@ -434,7 +436,12 @@ export const editModeHasItems = always(() => {
   return itemsCount.current > 0;
 });
 
-// 5. Pluralization of the "items left" label.
+// 5. No blank todos should exist in the list.
+export const noBlankTodos = always(() => {
+  return items.current.every((i) => i.text.trim() !== "");
+});
+
+// 6. Pluralization of the "items left" label.
 export const itemsLeftPluralized = always(() => {
   const count = todoCount.current;
   const text = itemsLeft.current;
