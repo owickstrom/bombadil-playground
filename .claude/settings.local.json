@@ -22,7 +22,8 @@
       "Bash(echo:*)",
       "Bash(npm install)",
       "Bash(nix --extra-experimental-features 'nix-command flakes' flake show:*)",
-      "Bash(tsc:*)"
+      "Bash(tsc:*)",
+      "Bash(node:*)"
     ]
   }
 }
