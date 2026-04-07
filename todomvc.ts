@@ -152,14 +152,20 @@ const selectedFilter = extract((state) => {
 
 const editInput = extract((state) => getEditInput(state));
 
+// Number of items visible in the current filter view.
+// Changes when switching filters (e.g., All→Active hides checked items).
 const itemsCount = extract((state) => {
   return getItems(state).length;
 });
 
+// Number of unchecked items visible in the current filter view.
+// Zero when viewing "Completed" filter.
 const itemsUncheckedCount = extract((state) => {
   return getItems(state).filter((i) => !i.checked).length;
 });
 
+// Number of checked items visible in the current filter view.
+// Zero when viewing "Active" filter.
 const itemsCheckedCount = extract((state) => {
   return getItems(state).filter((i) => i.checked).length;
 });
@@ -168,6 +174,8 @@ const itemsInEditModeCount = extract((state) => {
   return getItems(state).filter((i) => i.isEditing).length;
 });
 
+// Array of items visible in the current filter view.
+// Content changes when switching filters.
 const items = extract((state) => getItems(state));
 
 const isInEditMode = extract((state) => {
@@ -193,6 +201,9 @@ const newTodoInput = extract((state) => {
   };
 });
 
+// Total count of unchecked items from the footer "X items left" text.
+// Independent of current filter view - always shows total unchecked count.
+// Since new items are always created unchecked, this increases on item creation.
 const todoCount = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .todo-count",
@@ -230,7 +241,7 @@ const availableFilters = extract((state) => {
 
 const toggleAllLabel = extract((state) => {
   const el = state.document.querySelector(
-    ".todoapp label[for^=toggle-all]",
+    ".todoapp label[for^=toggle-all], .todoapp .toggle-all-label",
   ) as HTMLElement | null;
   if (!el || !isVisible(el)) return null;
   return el.textContent ?? "";
@@ -291,7 +302,7 @@ const selectedFilterLink = extract((state) => {
 
 const toggleAllLabelTarget = extract((state) => {
   const el = state.document.querySelector(
-    ".todoapp label[for=toggle-all]"
+    ".todoapp label[for=toggle-all], .todoapp .toggle-all-label"
   ) as HTMLElement | null;
   if (!el || !isVisible(el)) return null;
 
@@ -467,6 +478,116 @@ export const itemsLeftPluralized = always(() => {
   } else {
     return hasWord("items");
   }
+});
+
+export const filterChangePreservesPendingText = always(() => {
+  const pendingTextNow = newTodoInput.current?.pendingText ?? "";
+  const filterNow = selectedFilter.current;
+  const filtersNow = availableFilters.current;
+
+  return now(() => filtersNow.length > 0)
+    .and(now(() => pendingTextNow.trim() !== ""))
+    .and(next(() => availableFilters.current.length > 0))
+    .and(next(() => {
+      const filterNext = selectedFilter.current;
+      return filterNow !== filterNext;
+    }))
+    .implies(
+      next(() => {
+        const pendingTextNext = newTodoInput.current?.pendingText ?? "";
+        return pendingTextNext === pendingTextNow;
+      })
+    );
+});
+
+export const filterChangeDoesNotCreateItems = always(() => {
+  const filterNow = selectedFilter.current;
+  const filtersNow = availableFilters.current;
+  const todoCountNow = todoCount.current;
+
+  return now(() => filtersNow.length > 0)
+    .and(now(() => todoCountNow != null))
+    .and(next(() => availableFilters.current.length > 0))
+    .and(next(() => {
+      const filterNext = selectedFilter.current;
+      return filterNow !== filterNext;
+    }))
+    .implies(
+      next(() => {
+        const todoCountNext = todoCount.current;
+        return todoCountNext === todoCountNow;
+      })
+    );
+});
+
+export const filterToAllShowsMoreItems = always(() => {
+  const filterNow = selectedFilter.current;
+  const filtersNow = availableFilters.current;
+  const itemsCountNow = itemsCount.current;
+
+  return now(() => filtersNow.length > 0)
+    .and(
+      now(() => filterNow === "Active").or(now(() => filterNow === "Completed"))
+    )
+    .and(next(() => availableFilters.current.length > 0))
+    .and(next(() => {
+      const filterNext = selectedFilter.current;
+      return filterNext === "All";
+    }))
+    .implies(
+      next(() => {
+        const itemsCountNext = itemsCount.current;
+        return itemsCountNext >= itemsCountNow;
+      })
+    );
+});
+
+export const filterFromAllShowsFewerItems = always(() => {
+  const filterNow = selectedFilter.current;
+  const filtersNow = availableFilters.current;
+  const itemsCountNow = itemsCount.current;
+
+  return now(() => filtersNow.length > 0)
+    .and(now(() => filterNow === "All"))
+    .and(next(() => availableFilters.current.length > 0))
+    .and(
+      next(() => selectedFilter.current === "Active")
+        .or(next(() => selectedFilter.current === "Completed"))
+    )
+    .implies(
+      next(() => {
+        const itemsCountNext = itemsCount.current;
+        return itemsCountNext <= itemsCountNow;
+      })
+    );
+});
+
+export const addingItemPreservesFilter = always(() => {
+  const filterNow = selectedFilter.current;
+  const filtersNow = availableFilters.current;
+  const todoCountNow = todoCount.current;
+  const pendingTextNow = newTodoInput.current?.pendingText ?? "";
+
+  return now(() => filtersNow.length > 0)
+    .and(now(() => pendingTextNow.trim() !== ""))
+    .and(now(() => todoCountNow != null))
+    .and(next(() => availableFilters.current.length > 0))
+    .and(
+      next(() => {
+        const pendingTextNext = newTodoInput.current?.pendingText ?? "";
+        return pendingTextNext.trim() === "";
+      })
+    )
+    .and(next(() => {
+      const todoCountNext = todoCount.current;
+      return todoCountNext != null && todoCountNext > todoCountNow;
+    }))
+    .implies(
+      next(() => {
+        const filterNext = selectedFilter.current;
+        return filterNext === filterNow;
+      })
+    );
 });
 
 // -------------------------------------------------
@@ -806,26 +927,21 @@ const createTodo = actions(() => {
 // Constructive actions (higher weight): create content, interact with UI
 // Lower weight actions: navigation, scrolling, waiting
 export const todomvcActions = weighted([
-  // High weight: typing and creating todos (10)
   [10, typePendingText],
-  [10, createTodo],
   [10, typeEditText],
 
-  // Medium-high weight: clicking, toggling, editing (7)
   [7, focusNewTodoInput],
   [7, editTodo],
   [7, toggleAllTodos],
   [7, commitEdit],
 
-  // Medium weight: filter changes, deletion (5)
   [5, selectOtherFilter],
   [5, deleteTodo],
   [5, abortEdit],
+  [5, createTodo],
 
-  // Low weight: repetitive or less important actions (2)
   [2, selectSameFilter],
 
-  // Very low weight: default actions and waiting (1)
   [1, clicks],
   [1, inputs],
   [1, scroll],

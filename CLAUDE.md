@@ -27,6 +27,34 @@ The Nix shell provides helper scripts:
 - `todomvc-serve [port]` — Serve built TodoMVC on localhost (default port 8000)
 - `todomvc-test <impl|all>` — Run Bombadil specs against a TodoMVC implementation
 
+## Bombadil Temporal Logic Patterns
+
+When writing Bombadil specifications, you can capture state values across temporal transitions:
+
+1. Use `always()` (not `now()`) at the top level for temporal properties
+2. Extract values with `.current` in the current state and close over them
+3. Use `next()` to access the next state, where you can compare against the closed-over values
+
+Example pattern:
+```typescript
+const propertyName = always(() => {
+  const valueNow = someExtractor.current;
+  const otherValueNow = anotherExtractor.current;
+
+  return next(() => {
+    const valueNext = someExtractor.current;
+
+    // Compare valueNext to valueNow (closed over from above)
+    if (someCondition(valueNow, otherValueNow)) {
+      return valueNext === valueNow; // State preservation check
+    }
+    return true;
+  });
+});
+```
+
+This pattern allows you to verify state preservation across actions (e.g., pending input should survive filter changes).
+
 ## Project Structure
 
 - `todomvc.ts` — Main TodoMVC Bombadil specification
