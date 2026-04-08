@@ -1,4 +1,4 @@
-import { always, extract, now, next, actions, weighted } from "@antithesishq/bombadil";
+import { always, extract, now, next, actions, weighted, strings } from "@antithesishq/bombadil";
 
 export {
   noHttpErrorCodes,
@@ -876,11 +876,9 @@ const deleteTodo = actions(() => {
 const typePendingText = actions(() => {
   if (!newTodoInputExists.current || !newTodoInputActive.current) return [];
   if (isInEditMode.current) return [];
-
+  const text = strings().generate();
   return [
-    { TypeText: { text: " ", delayMillis: 50 } },
-    { TypeText: { text: "a", delayMillis: 50 } },
-    { TypeText: { text: "b", delayMillis: 50 } },
+    { TypeText: { text, delayMillis: 5 } },
     { PressKey: { code: 8 } }, // Backspace
   ];
 });
