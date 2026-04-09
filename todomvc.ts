@@ -184,21 +184,35 @@ const isInEditMode = extract((state) => {
   return itemsInEditModeCount >= 1 && editInput != null;
 });
 
-const newTodoInput = extract((state) => {
+const newTodoInputExists = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp .new-todo",
+  ) as HTMLInputElement | null;
+  return el !== null;
+});
+
+const newTodoPendingText = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp .new-todo",
+  ) as HTMLInputElement | null;
+  if (!el) return "";
+  return el.value ?? "";
+});
+
+const newTodoInputActive = extract((state) => {
+  const el = state.document.querySelector(
+    ".todoapp .new-todo",
+  ) as HTMLInputElement | null;
+  if (!el) return false;
+  return state.document.activeElement === el;
+});
+
+const newTodoInputRect = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .new-todo",
   ) as HTMLInputElement | null;
   if (!el) return null;
-
-  const pendingText = el.value ?? "";
-  const active = state.document.activeElement === el;
-  const rect = el.getBoundingClientRect();
-
-  return {
-    pendingText,
-    active,
-    rect,
-  };
+  return el.getBoundingClientRect();
 });
 
 // Total count of unchecked items from the footer "X items left" text.
@@ -481,7 +495,7 @@ export const itemsLeftPluralized = always(() => {
 });
 
 export const filterChangePreservesPendingText = always(() => {
-  const pendingTextNow = newTodoInput.current?.pendingText ?? "";
+  const pendingTextNow = newTodoPendingText.current;
   const filterNow = selectedFilter.current;
   const filtersNow = availableFilters.current;
 
@@ -494,7 +508,7 @@ export const filterChangePreservesPendingText = always(() => {
     }))
     .implies(
       next(() => {
-        const pendingTextNext = newTodoInput.current?.pendingText ?? "";
+        const pendingTextNext = newTodoPendingText.current;
         return pendingTextNext === pendingTextNow;
       })
     );
@@ -566,7 +580,7 @@ export const addingItemPreservesFilter = always(() => {
   const filterNow = selectedFilter.current;
   const filtersNow = availableFilters.current;
   const todoCountNow = todoCount.current;
-  const pendingTextNow = newTodoInput.current?.pendingText ?? "";
+  const pendingTextNow = newTodoPendingText.current;
 
   return now(() => filtersNow.length > 0)
     .and(now(() => pendingTextNow.trim() !== ""))
@@ -574,7 +588,7 @@ export const addingItemPreservesFilter = always(() => {
     .and(next(() => availableFilters.current.length > 0))
     .and(
       next(() => {
-        const pendingTextNext = newTodoInput.current?.pendingText ?? "";
+        const pendingTextNext = newTodoPendingText.current;
         return pendingTextNext.trim() === "";
       })
     )
@@ -597,23 +611,19 @@ export const addingItemPreservesFilter = always(() => {
 
 // focusNewTodo: input not active → next step it becomes active.
 const focusNewTodoTransition = now(() => {
-  const input = newTodoInput.current;
-  return !!input && !input.active;
+  return newTodoInputExists.current && !newTodoInputActive.current;
 }).implies(
   next(() => {
-    const input = newTodoInput.current;
-    return !!input && input.active;
+    return newTodoInputExists.current && newTodoInputActive.current;
   }),
 );
 
 // enterNewTodoText: we can change pending text without changing structure.
 const enterNewTodoTextTransition = now(() => {
-  const input = newTodoInput.current;
-  return !!input;
+  return newTodoInputExists.current;
 }).implies(
   next(() => {
-    const input = newTodoInput.current;
-    return !!input;
+    return newTodoInputExists.current;
   }),
 );
 
@@ -643,14 +653,12 @@ const setSameFilterTransition = now(() => {
 
 // addNew: when pending text is non-blank, committing clears the input.
 const addNewTransition = now(() => {
-  const input = newTodoInput.current;
-  if (!input) return false;
-  const trimmed = input.pendingText.trim();
+  if (!newTodoInputExists.current) return false;
+  const trimmed = newTodoPendingText.current.trim();
   return trimmed !== "";
 }).implies(
   next(() => {
-    const input = newTodoInput.current;
-    return !!input && input.pendingText.trim() === "";
+    return newTodoInputExists.current && newTodoPendingText.current.trim() === "";
   }),
 );
 
@@ -790,11 +798,11 @@ export const todomvcStepTransitions = always(todomvcStepRelation);
 
 // Wait for the app to load when the screen is blank (e.g. React hasn't mounted yet)
 const waitForAppToLoad = actions(() => {
-  const input = newTodoInput.current;
+  const inputExists = newTodoInputExists.current;
   const filters = availableFilters.current;
 
   // If there's no new-todo input and no filters, the app hasn't rendered yet
-  if (!input && filters.length === 0) {
+  if (!inputExists && filters.length === 0) {
     return ["Wait"];
   }
   return [];
@@ -802,12 +810,14 @@ const waitForAppToLoad = actions(() => {
 
 // Focus the new todo input if it's not active
 const focusNewTodoInput = actions(() => {
-  const input = newTodoInput.current;
-  if (!input) return [];
-  if (input.active) return [];
+  if (!newTodoInputExists.current) return [];
+  if (newTodoInputActive.current) return [];
   if (isInEditMode.current) return [];
 
-  const point = getCenterPointFromRect(input.rect);
+  const rect = newTodoInputRect.current;
+  if (!rect) return [];
+
+  const point = getCenterPointFromRect(rect);
   if (!point) return [];
 
   const target: ClickTarget = {
@@ -864,8 +874,7 @@ const deleteTodo = actions(() => {
 
 // Type text in the new todo input
 const typePendingText = actions(() => {
-  const input = newTodoInput.current;
-  if (!input || !input.active) return [];
+  if (!newTodoInputExists.current || !newTodoInputActive.current) return [];
   if (isInEditMode.current) return [];
 
   return [
@@ -910,9 +919,8 @@ const commitEdit = actions(() => {
 
 // Create a new todo (press Enter when there's text)
 const createTodo = actions(() => {
-  const input = newTodoInput.current;
-  if (!input || !input.active) return [];
-  if (input.pendingText.trim() === "") return [];
+  if (!newTodoInputExists.current || !newTodoInputActive.current) return [];
+  if (newTodoPendingText.current.trim() === "") return [];
   if (isInEditMode.current) return [];
 
   return [
