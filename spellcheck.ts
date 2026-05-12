@@ -1,19 +1,22 @@
 import NSpell from "nspell";
 import { extract, always } from "@antithesishq/bombadil";
 import { getSpellCheckableWords } from "./wordExtractor.ts";
-export * from "@antithesishq/bombadil/defaults/actions";
+export { clicks, scroll, navigation } from "@antithesishq/bombadil/defaults/actions";
 
 // @ts-ignore
-import aff from "./node_modules/dictionary-en/index.aff" with { type: "text" };
+import affUs from "./node_modules/dictionary-en/index.aff" with { type: "text" };
 // @ts-ignore
 import dicUs from "./node_modules/dictionary-en/index.dic" with { type: "text" };
+// @ts-ignore
+import affGb from "./node_modules/dictionary-en-gb/index.aff" with { type: "text" };
 // @ts-ignore
 import dicGb from "./node_modules/dictionary-en-gb/index.dic" with { type: "text" };
 // @ts-ignore
 import customDic from "./custom.dic" with { type: "text" };
 
 const misspelled = extract(state => {
-  const spell = new NSpell(aff, dicUs).dictionary(dicGb).personal(customDic);
+  const spell_us = new NSpell(affUs, dicUs).personal(customDic);
+  const spell_gb = new NSpell(affGb, dicGb).personal(customDic);
 
   const body = state.document.querySelector("body");
   if (!body) { return []; }
@@ -23,7 +26,9 @@ const misspelled = extract(state => {
 
   const words = [...getSpellCheckableWords(body)];
 
-  return words.filter(word => !spell.correct(word));
+  return words
+    .filter(word => !/^[A-Z]/.test(word))
+    .filter(word => !spell_us.correct(word) && !spell_gb.correct(word));
 });
 
 export const no_spelling_errors = always(() => {

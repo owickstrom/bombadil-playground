@@ -155,8 +155,8 @@ function extractWords(text: string): Set<string> {
     return token;
   });
 
-  // Split on anything that's NOT a letter (Unicode-aware) or ASCII apostrophe
-  const words = noUrls.split(/[^\p{L}']+/u).filter(w => w.length > 0);
+  // Split on various non-letter chars
+  const words = noUrls.split(/[^\p{L}'-]+/u).filter(w => w.length > 0);
 
   return new Set(
     words
