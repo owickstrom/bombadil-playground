@@ -23,7 +23,10 @@
       "Bash(npm install)",
       "Bash(nix --extra-experimental-features 'nix-command flakes' flake show:*)",
       "Bash(tsc:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(rm -f /tmp/spellcheck_output.txt)",
+      "Bash(bombadil test *)",
+      "Bash(wget -q -O /tmp/page.html 'http://localhost:8080')"
     ]
   }
 }

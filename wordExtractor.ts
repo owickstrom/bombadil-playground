@@ -156,7 +156,7 @@ function extractWords(text: string): Set<string> {
   });
 
   // Split on various non-letter chars
-  const words = noUrls.split(/[^\p{L}'-]+/u).filter(w => w.length > 0);
+  const words = noUrls.split(/[^\p{L}']+/u).filter(w => w.length > 0);
 
   return new Set(
     words
