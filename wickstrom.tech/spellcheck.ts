@@ -1,7 +1,7 @@
 import NSpell from "nspell";
 import { extract, always } from "@antithesishq/bombadil";
 import { getSpellCheckableWords } from "./wordExtractor.ts";
-export { clicks, scroll, navigation } from "@antithesishq/bombadil/defaults/actions";
+export * from "@antithesishq/bombadil/defaults";
 
 // @ts-ignore
 import affUs from "./node_modules/dictionary-en/index.aff" with { type: "text" };

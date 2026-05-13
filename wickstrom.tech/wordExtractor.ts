@@ -1,20 +1,6 @@
-// Common TLDs for identifying domain-like tokens to exclude from spell checking
-const TLDS = new Set([
-  // Generic
-  'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
-  // Common gTLDs
-  'io', 'dev', 'app', 'co', 'ai', 'me', 'tv', 'info', 'biz', 'pro',
-  'xyz', 'tech', 'cloud', 'blog', 'site', 'online', 'store', 'shop',
-  'gg', 'lol', 'page', 'run', 'codes', 'works', 'systems', 'design',
-  // Country codes commonly seen as domains
-  'uk', 'de', 'fr', 'es', 'it', 'nl', 'be', 'at', 'ch', 'se', 'no',
-  'dk', 'fi', 'pt', 'pl', 'cz', 'hu', 'ro', 'ie', 'ru', 'ua', 'jp',
-  'cn', 'kr', 'tw', 'hk', 'sg', 'au', 'nz', 'ca', 'mx', 'br', 'ar',
-  'in', 'za', 'il', 'ae', 'tr', 'gr',
-  // Tech-oriented ccTLDs
-  'rs', 'js', 'ts', 'py', 'go', 'sh', 'md', 'tf', 'st', 'cc', 'ws',
-  'fm', 'im', 'ac', 'to', 'ly',
-]);
+import tlds from 'tlds';
+
+const TLDS = new Set(tlds);
 
 /**
  * Collects spell-checkable text from a DOM tree using stack-based traversal.
@@ -77,14 +63,14 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as Element;
       // Skip if spellcheck attribute is explicitly set to "false"
-      const spellcheck = node.getAttribute('spellcheck');
+      const spellcheck = element.getAttribute('spellcheck');
       if (spellcheck === 'false') {
         continue;
       }
 
       // Skip ignored element types
       // Use toUpperCase() because SVG/MathML elements have lowercase tagName
-      const tag = node.tagName.toUpperCase();
+      const tag = element.tagName.toUpperCase();
       if (IGNORED_TAGS.has(tag)) {
         continue;
       }
@@ -93,7 +79,7 @@ export function getSpellCheckableWords(root: HTMLElement): Set<string> {
       // falling back to tag-based check in environments without layout
       let isBlock = BLOCK_TAGS.has(tag);
       if (view) {
-        const display = view.getComputedStyle(node).display;
+        const display = view.getComputedStyle(element).display;
         if (display) {
           isBlock = !display.startsWith('inline') && display !== 'contents' && display !== 'none';
         }
@@ -150,7 +136,8 @@ function extractWords(text: string): Set<string> {
     if (/^https?:\/\//i.test(token)) return ' ';
     // Tokens containing .tld (check all dot-separated parts for multi-part TLDs like .id.au)
     for (const match of token.matchAll(/\.([a-z]+)/gi)) {
-      if (TLDS.has(match[1].toLowerCase())) return ' ';
+      const part = match[1];
+      if (part && TLDS.has(part.toLowerCase())) return ' ';
     }
     return token;
   });

@@ -26,7 +26,8 @@
       "Bash(node:*)",
       "Bash(rm -f /tmp/spellcheck_output.txt)",
       "Bash(bombadil test *)",
-      "Bash(wget -q -O /tmp/page.html 'http://localhost:8080')"
+      "Bash(wget -q -O /tmp/page.html 'http://localhost:8080')",
+      "Bash(npm test *)"
     ]
   }
 }
