@@ -24,9 +24,10 @@ Repeat until step 1 finds no flagged words:
 ### 1. Run the spell check
 
 ```bash
+mkdir -p .tmp
 bombadil test --headless --exit-on-violation --time-limit 5m \
   http://localhost:8080 wickstrom.tech/spellcheck.ts \
-  > /tmp/blog-spellcheck.txt 2>&1
+  > .tmp/blog-spellcheck.txt 2>&1
 ```
 
 Exit code 2 = violation found. Exit code 0 / timeout = clean run on the
@@ -34,7 +35,7 @@ pages Bombadil explored in 5 minutes (which may not be exhaustive — see
 step 3).
 
 Bombadil prints violations directly on stdout — read
-`/tmp/blog-spellcheck.txt` to collect the flagged words and the URLs
+`.tmp/blog-spellcheck.txt` to collect the flagged words and the URLs
 where they were found.
 
 ### 2. Triage each flagged word

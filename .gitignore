@@ -1,2 +1,3 @@
 node_modules
+.tmp
 .claude/skills/edit-bombadil-spec/bombadil-manual.txt
