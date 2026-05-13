@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/owi/.claude/skills/**)",
+      "Read(//home/owi/.claude/**)"
+    ]
+  }
+}
