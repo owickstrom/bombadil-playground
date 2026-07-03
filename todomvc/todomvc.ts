@@ -1,18 +1,24 @@
-import { always, extract, now, next, actions, weighted, strings } from "@antithesishq/bombadil";
+import {
+  always,
+  now,
+  next,
+} from "@antithesishq/bombadil";
+import { ActionGenerator, CharSet } from "@antithesishq/bombadil/actions";
+import { actions, ActionTemplate, extract, getFingerprint, weighted } from "@antithesishq/bombadil/browser";
 
 export {
   noHttpErrorCodes,
   noUncaughtExceptions,
   noUnhandledPromiseRejections,
   noConsoleErrors,
-} from "@antithesishq/bombadil/defaults/properties";
+} from "@antithesishq/bombadil/browser/defaults/properties";
 
 import {
   scroll,
   clicks,
   inputs,
   navigation,
-} from "@antithesishq/bombadil/defaults/actions";
+} from "@antithesishq/bombadil/browser/defaults/actions";
 
 // -------------------------------------------------
 // Helpers
@@ -56,16 +62,6 @@ function arraysEqual(a: unknown[] | null, b: unknown[] | null): boolean {
 
 function getCenterPoint(el: Element): { x: number; y: number } | null {
   const rect = el.getBoundingClientRect();
-  if (rect.width > 0 && rect.height > 0) {
-    return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
-  }
-  return null;
-}
-
-function getCenterPointFromRect(rect: DOMRect): { x: number; y: number } | null {
   if (rect.width > 0 && rect.height > 0) {
     return {
       x: rect.left + rect.width / 2,
@@ -179,7 +175,9 @@ const itemsInEditModeCount = extract((state) => {
 const items = extract((state) => getItems(state));
 
 const isInEditMode = extract((state) => {
-  const itemsInEditModeCount = getItems(state).filter((i) => i.isEditing).length;
+  const itemsInEditModeCount = getItems(state).filter(
+    (i) => i.isEditing,
+  ).length;
   const editInput = getEditInput(state);
   return itemsInEditModeCount >= 1 && editInput != null;
 });
@@ -207,12 +205,17 @@ const newTodoInputActive = extract((state) => {
   return state.document.activeElement === el;
 });
 
-const newTodoInputRect = extract((state) => {
+const newTodoInput = extract((state) => {
   const el = state.document.querySelector(
     ".todoapp .new-todo",
   ) as HTMLInputElement | null;
   if (!el) return null;
-  return el.getBoundingClientRect();
+  const point = getCenterPoint(el);
+  if (!point) return null;
+  return {
+    point,
+    fingerprint: getFingerprint(el),
+  };
 });
 
 // Total count of unchecked items from the footer "X items left" text.
@@ -265,70 +268,6 @@ const toggleAllLabel = extract((state) => {
 // Extractors for action generators
 // -------------------------------------------------
 
-type ClickTarget = {
-  name: string;
-  content?: string;
-  point: { x: number; y: number };
-};
-
-const unselectedFilterLinks = extract((state) => {
-  const links = Array.from(
-    state.document.querySelectorAll(".todoapp .filters a:not(.selected)")
-  ) as HTMLElement[];
-
-  return links
-    .filter(isVisible)
-    .map(el => {
-      const point = getCenterPoint(el);
-      if (!point) return null;
-      const content = normalizeText(el.textContent);
-      const result: ClickTarget = {
-        name: "filter-link",
-        point,
-      };
-      if (content !== null) {
-        result.content = content;
-      }
-      return result;
-    })
-    .filter((x): x is ClickTarget => x !== null);
-});
-
-const selectedFilterLink = extract((state) => {
-  const el = state.document.querySelector(
-    ".todoapp .filters a.selected"
-  ) as HTMLElement | null;
-  if (!el || !isVisible(el)) return null;
-
-  const point = getCenterPoint(el);
-  if (!point) return null;
-
-  const content = normalizeText(el.textContent);
-  const result: ClickTarget = {
-    name: "selected-filter",
-    point,
-  };
-  if (content !== null) {
-    result.content = content;
-  }
-  return result;
-});
-
-const toggleAllLabelTarget = extract((state) => {
-  const el = state.document.querySelector(
-    ".todoapp label[for=toggle-all], .todoapp .toggle-all-label"
-  ) as HTMLElement | null;
-  if (!el || !isVisible(el)) return null;
-
-  const point = getCenterPoint(el);
-  if (!point) return null;
-
-  return {
-    name: "toggle-all",
-    point,
-  };
-});
-
 const todoLabels = extract((state) => {
   const liNodes = Array.from(
     state.document.querySelectorAll(".todo-list li"),
@@ -345,35 +284,11 @@ const todoLabels = extract((state) => {
       if (!label || !isVisible(label)) return null;
       const point = getCenterPoint(label);
       if (!point) return null;
-      const content = normalizeText(label.textContent);
-      const result: ClickTarget = {
-        name: "todo-label",
-        point,
-      };
-      if (content !== null) {
-        result.content = content;
-      }
-      return result;
-    })
-    .filter((x): x is ClickTarget => x !== null);
-});
-
-const deleteButtons = extract((state) => {
-  const buttons = Array.from(
-    state.document.querySelectorAll(".todoapp .destroy")
-  ) as HTMLElement[];
-
-  return buttons
-    .filter(isVisible)
-    .map(el => {
-      const point = getCenterPoint(el);
-      if (!point) return null;
       return {
-        name: "delete-button",
         point,
+        fingerprint: getFingerprint(label),
       };
-    })
-    .filter((x): x is ClickTarget => x !== null);
+    });
 });
 
 // -------------------------------------------------
@@ -484,7 +399,10 @@ export const itemsLeftPluralized = always(() => {
 
   if (text == null) return false;
 
-  const parts = text.trim().split(/\s+/).map(p => p.replace(/[!.,;:?]+$/, ""));
+  const parts = text
+    .trim()
+    .split(/\s+/)
+    .map((p) => p.replace(/[!.,;:?]+$/, ""));
   const hasWord = (w: string) => parts.includes(w);
 
   if (count === 1) {
@@ -502,15 +420,17 @@ export const filterChangePreservesPendingText = always(() => {
   return now(() => filtersNow.length > 0)
     .and(now(() => pendingTextNow.trim() !== ""))
     .and(next(() => availableFilters.current.length > 0))
-    .and(next(() => {
-      const filterNext = selectedFilter.current;
-      return filterNow !== filterNext;
-    }))
+    .and(
+      next(() => {
+        const filterNext = selectedFilter.current;
+        return filterNow !== filterNext;
+      }),
+    )
     .implies(
       next(() => {
         const pendingTextNext = newTodoPendingText.current;
         return pendingTextNext === pendingTextNow;
-      })
+      }),
     );
 });
 
@@ -522,15 +442,17 @@ export const filterChangeDoesNotCreateItems = always(() => {
   return now(() => filtersNow.length > 0)
     .and(now(() => todoCountNow != null))
     .and(next(() => availableFilters.current.length > 0))
-    .and(next(() => {
-      const filterNext = selectedFilter.current;
-      return filterNow !== filterNext;
-    }))
+    .and(
+      next(() => {
+        const filterNext = selectedFilter.current;
+        return filterNow !== filterNext;
+      }),
+    )
     .implies(
       next(() => {
         const todoCountNext = todoCount.current;
         return todoCountNext === todoCountNow;
-      })
+      }),
     );
 });
 
@@ -541,18 +463,22 @@ export const filterToAllShowsMoreItems = always(() => {
 
   return now(() => filtersNow.length > 0)
     .and(
-      now(() => filterNow === "Active").or(now(() => filterNow === "Completed"))
+      now(() => filterNow === "Active").or(
+        now(() => filterNow === "Completed"),
+      ),
     )
     .and(next(() => availableFilters.current.length > 0))
-    .and(next(() => {
-      const filterNext = selectedFilter.current;
-      return filterNext === "All";
-    }))
+    .and(
+      next(() => {
+        const filterNext = selectedFilter.current;
+        return filterNext === "All";
+      }),
+    )
     .implies(
       next(() => {
         const itemsCountNext = itemsCount.current;
         return itemsCountNext >= itemsCountNow;
-      })
+      }),
     );
 });
 
@@ -565,14 +491,15 @@ export const filterFromAllShowsFewerItems = always(() => {
     .and(now(() => filterNow === "All"))
     .and(next(() => availableFilters.current.length > 0))
     .and(
-      next(() => selectedFilter.current === "Active")
-        .or(next(() => selectedFilter.current === "Completed"))
+      next(() => selectedFilter.current === "Active").or(
+        next(() => selectedFilter.current === "Completed"),
+      ),
     )
     .implies(
       next(() => {
         const itemsCountNext = itemsCount.current;
         return itemsCountNext <= itemsCountNow;
-      })
+      }),
     );
 });
 
@@ -590,17 +517,19 @@ export const addingItemPreservesFilter = always(() => {
       next(() => {
         const pendingTextNext = newTodoPendingText.current;
         return pendingTextNext.trim() === "";
-      })
+      }),
     )
-    .and(next(() => {
-      const todoCountNext = todoCount.current;
-      return todoCountNext != null && todoCountNext > todoCountNow;
-    }))
+    .and(
+      next(() => {
+        const todoCountNext = todoCount.current;
+        return todoCountNow != null && todoCountNext != null && todoCountNext > todoCountNow;
+      }),
+    )
     .implies(
       next(() => {
         const filterNext = selectedFilter.current;
         return filterNext === filterNow;
-      })
+      }),
     );
 });
 
@@ -658,7 +587,9 @@ const addNewTransition = now(() => {
   return trimmed !== "";
 }).implies(
   next(() => {
-    return newTodoInputExists.current && newTodoPendingText.current.trim() === "";
+    return (
+      newTodoInputExists.current && newTodoPendingText.current.trim() === ""
+    );
   }),
 );
 
@@ -809,76 +740,37 @@ const waitForAppToLoad = actions(() => {
 });
 
 // Focus the new todo input if it's not active
-const focusNewTodoInput = actions(() => {
+const focusNewTodoInput: ActionGenerator<ActionTemplate> = actions(() => {
   if (!newTodoInputExists.current) return [];
   if (newTodoInputActive.current) return [];
   if (isInEditMode.current) return [];
 
-  const rect = newTodoInputRect.current;
-  if (!rect) return [];
+  const newTodo = newTodoInput.current;
+  if (!newTodo) return [];
 
-  const point = getCenterPointFromRect(rect);
-  if (!point) return [];
-
-  const target: ClickTarget = {
-    name: "new-todo-input",
-    point,
-  };
-  return [{ Click: target }];
-});
-
-// Select a filter that's not currently selected
-const selectOtherFilter = actions(() => {
-  if (isInEditMode.current) return [];
-
-  const links = unselectedFilterLinks.current;
-  return links.map(link => ({ Click: link }));
-});
-
-// Select the same filter (re-click)
-const selectSameFilter = actions(() => {
-  if (isInEditMode.current) return [];
-
-  const link = selectedFilterLink.current;
-  return link ? [{ Click: link }] : [];
-});
-
-// Toggle all todos
-const toggleAllTodos = actions(() => {
-  if (isInEditMode.current) return [];
-  if (itemsCount.current === 0) return [];
-
-  const target = toggleAllLabelTarget.current;
-  return target ? [{ Click: target }] : [];
+  return [{
+    Click: newTodo
+  }];
 });
 
 // Double-click a todo label to enter edit mode
-const editTodo = actions(() => {
+const editTodo: ActionGenerator<ActionTemplate> = actions(() => {
   if (isInEditMode.current) return [];
   if (itemsCount.current === 0) return [];
 
-  const labels = todoLabels.current;
-  return labels.map((label) => ({
-    DoubleClick: { ...label, delayMillis: 50 },
-  }));
+  const targets = todoLabels.current;
+  return targets.map((target) => ({
+    DoubleClick: { ...target, delayMillis: 50 },
+  } as ActionTemplate));
 });
 
-// Delete a todo
-const deleteTodo = actions(() => {
-  if (isInEditMode.current) return [];
-  if (itemsCount.current === 0) return [];
-
-  const buttons = deleteButtons.current;
-  return buttons.map(btn => ({ Click: btn }));
-});
 
 // Type text in the new todo input
 const typePendingText = actions(() => {
   if (!newTodoInputExists.current || !newTodoInputActive.current) return [];
   if (isInEditMode.current) return [];
-  const text = strings().generate();
   return [
-    { TypeText: { text, delayMillis: 5 } },
+    { TypeText: { text: { CharSet: CharSet.fromLiterals("foo", "bar", "baz") }, delayMillis: [0, 5] } },
     { PressKey: { code: 8 } }, // Backspace
   ];
 });
@@ -890,7 +782,7 @@ const typeEditText = actions(() => {
   if (!input) return [];
 
   return [
-    { TypeText: { text: "c", delayMillis: 50 } },
+    { TypeText: { text: { CharSet: CharSet.fromLiterals("foo", "bar", "baz") }, delayMillis: [0, 5] } },
     { PressKey: { code: 8 } }, // Backspace
   ];
 });
@@ -936,19 +828,14 @@ export const todomvcActions = weighted([
   [10, typePendingText],
   [10, typeEditText],
 
+  [7, clicks],
   [7, focusNewTodoInput],
   [7, editTodo],
-  [7, toggleAllTodos],
   [7, commitEdit],
 
-  [5, selectOtherFilter],
-  [5, deleteTodo],
   [5, abortEdit],
   [5, createTodo],
 
-  [2, selectSameFilter],
-
-  [1, clicks],
   [1, inputs],
   [1, scroll],
   [1, navigation],

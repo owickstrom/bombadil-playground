@@ -1,0 +1,8 @@
+{
+  "type": "module",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@antithesishq/bombadil": "^0.7.2"
+  }
+}
